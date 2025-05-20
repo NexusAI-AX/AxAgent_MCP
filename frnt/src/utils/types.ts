@@ -81,6 +81,7 @@ export type PendingMessage = Omit<Message, 'content'> & {
 
 export enum CanvasType {
   PY_INTERPRETER,
+  MCP_CONFIG,
 }
 
 export interface CanvasPyInterpreter {
@@ -88,4 +89,8 @@ export interface CanvasPyInterpreter {
   content: string;
 }
 
-export type CanvasData = CanvasPyInterpreter;
+export interface CanvasMcpConfig {
+  type: CanvasType.MCP_CONFIG;
+}
+
+export type CanvasData = CanvasPyInterpreter | CanvasMcpConfig;

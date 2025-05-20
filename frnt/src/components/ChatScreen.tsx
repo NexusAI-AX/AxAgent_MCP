@@ -4,6 +4,7 @@ import ChatMessage from './ChatMessage';
 import { CanvasType, Message, PendingMessage } from '../utils/types';
 import { classNames, cleanCurrentUrl, throttle } from '../utils/misc';
 import CanvasPyInterpreter from './CanvasPyInterpreter';
+import CanvasMcpConfig from './CanvasMcpConfig';
 import StorageUtils from '../utils/storage';
 import { useVSCodeContext } from '../utils/llama-vscode';
 import { useChatTextarea, ChatTextareaApi } from './useChatTextarea.ts';
@@ -309,6 +310,7 @@ export default function ChatScreen() {
         {canvasData?.type === CanvasType.PY_INTERPRETER && (
           <CanvasPyInterpreter />
         )}
+        {canvasData?.type === CanvasType.MCP_CONFIG && <CanvasMcpConfig />}
       </div>
     </div>
   );
