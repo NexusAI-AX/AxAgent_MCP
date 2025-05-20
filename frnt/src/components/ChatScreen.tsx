@@ -7,6 +7,8 @@ import CanvasPyInterpreter from './CanvasPyInterpreter';
 import StorageUtils from '../utils/storage';
 import { useVSCodeContext } from '../utils/llama-vscode';
 import { useChatTextarea, ChatTextareaApi } from './useChatTextarea.ts';
+import useSpeechToText from './useSpeechToText';
+import { MicrophoneIcon, StopIcon } from '@heroicons/react/24/outline';
 
 /**
  * A message display is a message node with additional information for rendering.
@@ -102,6 +104,9 @@ export default function ChatScreen() {
   } = useAppContext();
 
   const textarea: ChatTextareaApi = useChatTextarea(prefilledMsg.content());
+
+  const { start, stop, listening, supported } = useSpeechToText(textarea.setValue);
+  useEffect(() => stop, [stop]);
 
   const { extraContext, clearExtraContext } = useVSCodeContext(textarea);
   // TODO: improve this when we have "upload file" feature
@@ -284,6 +289,20 @@ export default function ChatScreen() {
               Send
             </button>
           )}
+          <button
+            className="btn btn-neutral ml-2"
+            onClick={listening ? stop : start}
+            disabled={!supported}
+            title={
+              supported ? undefined : 'Speech recognition not supported'
+            }
+          >
+            {listening ? (
+              <StopIcon className="h-6 w-6" />
+            ) : (
+              <MicrophoneIcon className="h-6 w-6" />
+            )}
+          </button>
         </div>
       </div>
       <div className="w-full sticky top-[7em] h-[calc(100vh-9em)]">
