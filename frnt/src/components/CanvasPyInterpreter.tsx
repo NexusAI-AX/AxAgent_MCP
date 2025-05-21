@@ -111,7 +111,10 @@ const runCodeInWorker = (
 export default function CanvasPyInterpreter() {
   const { canvasData, setCanvasData } = useAppContext();
 
-  const [code, setCode] = useState(canvasData?.content ?? ''); // copy to avoid direct mutation
+  const pyData =
+    canvasData?.type === CanvasType.PY_INTERPRETER ? canvasData : null;
+
+  const [code, setCode] = useState(pyData?.content ?? ''); // copy to avoid direct mutation
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState('');
   const [interruptFn, setInterruptFn] = useState<() => void>();
@@ -134,12 +137,14 @@ export default function CanvasPyInterpreter() {
 
   // run code on mount
   useEffect(() => {
-    setCode(canvasData?.content ?? '');
-    runCode(canvasData?.content ?? '');
+    setCode(pyData?.content ?? '');
+    if (pyData?.content) {
+      runCode(pyData.content);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasData?.content]);
+  }, [pyData?.content]);
 
-  if (canvasData?.type !== CanvasType.PY_INTERPRETER) {
+  if (!pyData) {
     return null;
   }
 
