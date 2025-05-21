@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useAppContext } from '../utils/app.context';
 import { XCloseButton } from '../utils/common';
+import {
+  loadMcpConfig,
+  fetchResources,
+  fetchPrompts,
+  fetchTools,
+} from '../utils/mcp';
 
 interface PingResult {
   [url: string]: string;
@@ -17,10 +23,10 @@ export default function CanvasMcpConfig() {
   const [tools, setTools] = useState<unknown>(null);
 
   useEffect(() => {
-    fetch('/mcp_config.json')
-      .then((res) => res.json())
+    loadMcpConfig()
       .then((data) => setConfig(JSON.stringify(data, null, 2)))
       .catch(() => setConfig('Failed to load configuration'));
+    fetchResources().then(setResources).catch(() => setResources([]));
   }, []);
 
   const addResource = () => {
@@ -42,7 +48,7 @@ export default function CanvasMcpConfig() {
 
   const loadPrompts = async () => {
     try {
-      const data = await (await fetch('/prompts.json')).json();
+      const data = await fetchPrompts();
       setPrompts(data);
     } catch {
       setPrompts('Failed to load prompts');
@@ -51,7 +57,7 @@ export default function CanvasMcpConfig() {
 
   const loadTools = async () => {
     try {
-      const data = await (await fetch('/tools.json')).json();
+      const data = await fetchTools();
       setTools(data);
     } catch {
       setTools('Failed to load tools');

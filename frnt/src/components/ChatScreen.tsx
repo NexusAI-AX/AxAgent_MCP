@@ -3,7 +3,6 @@ import { CallbackGeneratedChunk, useAppContext } from '../utils/app.context';
 import ChatMessage from './ChatMessage';
 import { CanvasType, Message, PendingMessage } from '../utils/types';
 import { classNames, cleanCurrentUrl, throttle } from '../utils/misc';
-import CanvasPyInterpreter from './CanvasPyInterpreter';
 import CanvasMcpConfig from './CanvasMcpConfig';
 import StorageUtils from '../utils/storage';
 import { useVSCodeContext } from '../utils/llama-vscode';
@@ -307,9 +306,6 @@ export default function ChatScreen() {
         </div>
       </div>
       <div className="w-full sticky top-[7em] h-[calc(100vh-9em)]">
-        {canvasData?.type === CanvasType.PY_INTERPRETER && (
-          <CanvasPyInterpreter />
-        )}
         {canvasData?.type === CanvasType.MCP_CONFIG && <CanvasMcpConfig />}
       </div>
     </div>
