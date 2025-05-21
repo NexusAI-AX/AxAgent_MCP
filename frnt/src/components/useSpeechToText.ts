@@ -14,7 +14,9 @@ export default function useSpeechToText(
   const [listening, setListening] = useState(false);
 
   // Resolve SpeechRecognition constructor across browsers
-  const speechRecognitionCtor: typeof SpeechRecognition | undefined =
+  const speechRecognitionCtor:
+    | (new () => SpeechRecognition)
+    | undefined =
     typeof window !== 'undefined'
       ? (window.SpeechRecognition || (window as any).webkitSpeechRecognition)
       : undefined;
