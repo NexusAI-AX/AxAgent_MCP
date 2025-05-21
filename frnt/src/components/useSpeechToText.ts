@@ -12,21 +12,21 @@ export default function useSpeechToText(
 ): SpeechToTextApi {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [listening, setListening] = useState(false);
-  const supported =
-    typeof window !== 'undefined' &&
-    (window.SpeechRecognition || window.webkitSpeechRecognition);
+  const speechRecognitionCtor: (new () => SpeechRecognition) | undefined =
+    typeof window !== 'undefined'
+      ? window.SpeechRecognition || window.webkitSpeechRecognition
+      : undefined;
+  const supported = !!speechRecognitionCtor;
 
   const start = useCallback(() => {
-    if (!supported || listening) return;
-    const SpeechRecognitionCtor =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognitionCtor();
+    if (!speechRecognitionCtor || listening) return;
+    const recognition = new speechRecognitionCtor();
     recognitionRef.current = recognition;
     recognition.interimResults = false;
-      recognition.onresult = (e: SpeechRecognitionEvent) => {
-        const transcript = Array.from(e.results as any[])
-          .map((r: any) => r[0].transcript)
-          .join('');
+    recognition.onresult = (e: SpeechRecognitionEvent) => {
+      const transcript = Array.from(e.results as any[])
+        .map((r: any) => r[0].transcript)
+        .join('');
       onResult(transcript);
     };
     recognition.onend = () => {
@@ -37,7 +37,7 @@ export default function useSpeechToText(
     };
     recognition.start();
     setListening(true);
-  }, [supported, listening, onResult]);
+  }, [speechRecognitionCtor, supported, listening, onResult]);
 
   const stop = useCallback(() => {
     recognitionRef.current?.stop();
