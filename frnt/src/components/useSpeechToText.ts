@@ -23,10 +23,10 @@ export default function useSpeechToText(
     const recognition: SpeechRecognition = new SpeechRecognitionCtor();
     recognitionRef.current = recognition;
     recognition.interimResults = false;
-    recognition.onresult = (e: SpeechRecognitionEvent) => {
-      const transcript = Array.from(e.results)
-        .map((r) => r[0].transcript)
-        .join('');
+      recognition.onresult = (e: SpeechRecognitionEvent) => {
+        const transcript = Array.from(e.results as any[])
+          .map((r: any) => r[0].transcript)
+          .join('');
       onResult(transcript);
     };
     recognition.onend = () => {
