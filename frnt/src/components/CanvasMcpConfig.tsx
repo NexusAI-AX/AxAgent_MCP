@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useAppContext } from '../utils/app.context';
-import { CanvasType } from '../utils/types';
 import { XCloseButton } from '../utils/common';
 
 interface PingResult {
