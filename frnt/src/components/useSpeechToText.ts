@@ -12,15 +12,17 @@ export default function useSpeechToText(
 ): SpeechToTextApi {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const [listening, setListening] = useState(false);
-  const supported =
-    typeof window !== 'undefined' &&
-    (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  const speechRecognitionCtor =
+    typeof window === 'undefined'
+      ? undefined
+      : window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  const supported = !!speechRecognitionCtor;
 
   const start = useCallback(() => {
-    if (!supported || listening) return;
-    const SpeechRecognitionCtor =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognitionCtor();
+    if (!supported || listening || !speechRecognitionCtor) return;
+    const recognition = new speechRecognitionCtor();
     recognitionRef.current = recognition;
     recognition.interimResults = false;
       recognition.onresult = (e: SpeechRecognitionEvent) => {
@@ -37,7 +39,7 @@ export default function useSpeechToText(
     };
     recognition.start();
     setListening(true);
-  }, [supported, listening, onResult]);
+  }, [supported, listening, onResult, speechRecognitionCtor]);
 
   const stop = useCallback(() => {
     recognitionRef.current?.stop();
