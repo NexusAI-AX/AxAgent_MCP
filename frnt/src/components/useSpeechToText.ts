@@ -14,13 +14,13 @@ export default function useSpeechToText(
   const [listening, setListening] = useState(false);
   const supported =
     typeof window !== 'undefined' &&
-    ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    (window.SpeechRecognition || window.webkitSpeechRecognition);
 
   const start = useCallback(() => {
     if (!supported || listening) return;
     const SpeechRecognitionCtor =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition: SpeechRecognition = new SpeechRecognitionCtor();
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognitionCtor();
     recognitionRef.current = recognition;
     recognition.interimResults = false;
     recognition.onresult = (e: SpeechRecognitionEvent) => {
