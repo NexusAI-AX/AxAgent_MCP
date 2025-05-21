@@ -237,23 +237,6 @@ const SETTING_SECTIONS: SettingSection[] = [
           </>
         ),
       },
-      {
-        type: SettingInputType.CHECKBOX,
-        label: (
-          <>
-            <b>Enable Python interpreter</b>
-            <br />
-            <small className="text-xs">
-              This feature uses{' '}
-              <OpenInNewTab href="https://pyodide.org">pyodide</OpenInNewTab>,
-              downloaded from CDN. To use this feature, ask the LLM to generate
-              Python code inside a Markdown code block. You will see a "Run"
-              button on the code block, near the "Copy" button.
-            </small>
-          </>
-        ),
-        key: 'pyIntepreterEnabled',
-      },
     ],
   },
 ];

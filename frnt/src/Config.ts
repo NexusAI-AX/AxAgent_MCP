@@ -37,8 +37,6 @@ export const CONFIG_DEFAULT = {
   dry_penalty_last_n: -1,
   max_tokens: -1,
   custom: '', // custom json-stringified object
-  // experimental features
-  pyIntepreterEnabled: false,
 };
 export const CONFIG_INFO: Record<string, string> = {
   apiKey: 'Set the API Key if you are using --api-key option for the server.',
