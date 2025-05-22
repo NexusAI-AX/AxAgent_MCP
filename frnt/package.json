@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "format": "eslint . && prettier --write .",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start:mcp": "node ../server/mcp.js"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -33,7 +34,8 @@
     "remark-math": "^6.0.0",
     "tailwindcss": "^4.1.1",
     "textlinestream": "^1.1.1",
-    "vite-plugin-singlefile": "^2.0.3"
+    "vite-plugin-singlefile": "^2.0.3",
+    "express": "^4.18.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
