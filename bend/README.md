@@ -100,6 +100,7 @@ http://localhost:8000/health        # 헬스 체크
 http://localhost:8000/config        # MCP 설정 확인
 http://localhost:8000/status        # 서버 상태
 http://localhost:8000/events        # 실시간 이벤트 확인 (다른 브라우저 탭에서)
+- 이벤트 큐는 최대 1000개 항목을 보관하며 가득 차면 가장 오래된 이벤트부터 삭제됩니다.
 
 
 # Context7 서버 시작

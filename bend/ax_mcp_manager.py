@@ -106,7 +106,8 @@ class MCPClientManager:
         self.server_status: Dict[str, MCPServerStatus] = {}
         self.request_counters: Dict[str, int] = defaultdict(int)
         self.pending_requests: Dict[str, Dict[int, asyncio.Future]] = defaultdict(dict)
-        self.event_queue: asyncio.Queue = asyncio.Queue()
+        # 이벤트 스트림 큐(최대 1000개). 초과 시 가장 오래된 이벤트를 폐기합니다.
+        self.event_queue: asyncio.Queue = asyncio.Queue(maxsize=1000)
         
         # 초기화
         self.load_config()
@@ -156,7 +157,10 @@ class MCPClientManager:
             self._send_event("config_error", {"error": str(e)})
     
     def _send_event(self, event_type: str, data: Dict[str, Any]):
-        """SSE 이벤트 큐에 이벤트 추가"""
+        """SSE 이벤트 큐에 이벤트 추가.
+
+        큐가 가득 차면 가장 오래된 이벤트를 제거한 후 새 이벤트를 넣습니다.
+        """
         event = {
             "timestamp": datetime.now().isoformat(),
             "type": event_type,
@@ -165,7 +169,12 @@ class MCPClientManager:
         try:
             self.event_queue.put_nowait(event)
         except asyncio.QueueFull:
-            logger.warning("이벤트 큐가 가득참")
+            try:
+                self.event_queue.get_nowait()  # drop oldest
+                self.event_queue.put_nowait(event)
+                logger.warning("이벤트 큐가 가득차서 가장 오래된 이벤트를 폐기했습니다")
+            except Exception as e:
+                logger.error(f"이벤트 큐 처리 오류: {e}")
     
     async def start_server(self, server_id: str) -> bool:
         """MCP 서버 시작"""
