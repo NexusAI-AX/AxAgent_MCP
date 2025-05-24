@@ -464,7 +464,7 @@ export class MCPManager {
     toolNameOrArgs?: string | Record<string, any>,
     args?: Record<string, any>
   ): Promise<any> {
-    let serverId: string;
+    let serverId: string | undefined;
     let toolName: string;
     let arguments: Record<string, any>;
 
@@ -486,7 +486,7 @@ export class MCPManager {
         }
       }
       
-      if (!serverId!) {
+      if (!serverId) {
         throw new Error(`도구를 찾을 수 없습니다: ${toolName}`);
       }
     }
