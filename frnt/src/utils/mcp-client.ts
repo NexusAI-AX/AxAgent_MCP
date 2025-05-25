@@ -192,7 +192,7 @@ export class MCPClient {
   async callTool(
     serverId: string,
     toolName: string,
-    arguments: Record<string, any> = {}
+    toolArgs: Record<string, any> = {}
   ): Promise<{ success: boolean; result: any }> {
     return this.request('/tools/call', {
       method: 'POST',
@@ -240,14 +240,14 @@ export class MCPClient {
   async getPrompt(
     serverId: string,
     promptName: string,
-    arguments: Record<string, any> = {}
+    promptArgs: Record<string, any> = {}
   ): Promise<{ success: boolean; result: any }> {
     return this.request('/prompts/get', {
       method: 'POST',
       body: JSON.stringify({
         server_id: serverId,
         prompt_name: promptName,
-        arguments,
+        arguments: promptArgs,
       }),
     });
   }
@@ -462,21 +462,21 @@ export class MCPManager {
   async executeTool(
     serverIdOrToolName: string,
     toolNameOrArgs?: string | Record<string, any>,
-    args?: Record<string, any>
+    argsParam?: Record<string, any>
   ): Promise<any> {
     let serverId: string;
     let toolName: string;
-    let arguments: Record<string, any>;
+    let toolArgs: Record<string, any>;
 
     if (typeof toolNameOrArgs === 'string') {
       // executeTool(serverId, toolName, args)
       serverId = serverIdOrToolName;
       toolName = toolNameOrArgs;
-      arguments = args || {};
+      toolArgs = argsParam || {};
     } else {
       // executeTool(toolName, args)
       toolName = serverIdOrToolName;
-      arguments = toolNameOrArgs || {};
+      toolArgs = toolNameOrArgs || {};
       
       // 도구를 가진 서버 찾기
       for (const [sid, tools] of this.tools.entries()) {
@@ -491,8 +491,42 @@ export class MCPManager {
       }
     }
 
-    const result = await this.client.callTool(serverId, toolName, arguments);
-    return result.result;
+    try {
+      const result = await this.client.callTool(serverId, toolName, toolArgs);
+      return result.result;
+    } catch (error) {
+      console.error(`도구 실행 오류 (${toolName}):`, error);
+      throw error;
+    }
+  }
+  
+  // 리소스 조회 메서드
+  async readResource(serverId: string, uri: string): Promise<any> {
+    try {
+      const result = await this.client.readResource(serverId, uri);
+      return result.content;
+    } catch (error) {
+      console.error(`리소스 조회 오류 (${uri}):`, error);
+      throw error;
+    }
+  }
+
+  // 프롬프트 실행 메서드
+  async executePrompt(serverId: string, promptName: string, args: Record<string, any> = {}): Promise<any> {
+    try {
+      // 모든 인자 값을 문자열로 변환
+      const stringArgs: Record<string, string> = {};
+      Object.keys(args).forEach(key => {
+        stringArgs[key] = String(args[key]);
+      });
+      
+      console.log(`프롬프트 실행 중 (${promptName}), 인자:`, stringArgs);
+      const result = await this.client.getPrompt(serverId, promptName, stringArgs);
+      return result.result;
+    } catch (error) {
+      console.error(`프롬프트 실행 오류 (${promptName}):`, error);
+      throw error;
+    }
   }
 
   destroy(): void {

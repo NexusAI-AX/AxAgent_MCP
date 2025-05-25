@@ -8,5 +8,13 @@
           "claude-talk-to-figma-mcp@latest"
         ]
       }
+      ,
+      "Context7": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@upstash/context7-mcp@latest"
+        ]
+      }
     }
   }
