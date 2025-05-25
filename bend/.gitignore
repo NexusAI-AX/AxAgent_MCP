@@ -39,3 +39,6 @@ ENV/
 # Local development
 .DS_Store
 Thumbs.db
+
+
+.windsurfrules

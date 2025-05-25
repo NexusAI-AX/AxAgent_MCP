@@ -174,7 +174,7 @@ class MCPClientManager:
             
         if server_id in self.processes:
             logger.warning(f"서버가 이미 실행 중입니다: {server_id}")
-            return False
+            return True
             
         try:
             config = self.servers[server_id]

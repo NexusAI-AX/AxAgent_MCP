@@ -1,22 +1,5 @@
 {
     "mcpServers": {
-      "context7": {
-        "command": "cmd",
-        "args": ["/c", "npx", "-y", "@upstash/context7-mcp@latest"]
-      },
-      "server-sequential-thinking": {
-        "command": "cmd",
-        "args": [
-          "/c",
-          "npx",
-          "-y",
-          "@smithery/cli@latest",
-          "run",
-          "@smithery-ai/server-sequential-thinking",
-          "--key",
-          "d1501062-fdad-4aa2-88bb-c5533db6f0d9"
-        ]
-      },
       "ClaudeTalkToFigma": {
         "command": "cmd",
         "args": [
