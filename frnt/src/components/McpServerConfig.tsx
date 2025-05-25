@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import MCPToolPanel from './MCPToolPanel';
+// MCPPromptPanel 컴포넌트 임포트
+import MCPPromptPanel from './MCPPromptPanel';
+import MCPResourcePanel from './MCPResourcePanel';
 import { MCPTool, MCPResource, MCPPrompt } from '../utils/mcp-client';
 import { useAppContext } from '../utils/app.context';
+import { MCPManager } from '../utils/mcp-client';
 import { OpenInNewTab, XCloseButton } from '../utils/common';
 import { CanvasType } from '../utils/types';
 import { PlayIcon, StopIcon } from '@heroicons/react/24/outline';
@@ -34,6 +38,7 @@ interface ServerStatus {
 
 export default function McpServerConfig() {
   const { canvasData, setCanvasData } = useAppContext();
+  const mcpManager = new MCPManager();
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
   const [serverTools, setServerTools] = useState<MCPTool[]>([]);
   const [serverResources, setServerResources] = useState<MCPResource[]>([]);
@@ -263,6 +268,33 @@ export default function McpServerConfig() {
 
   
   // 도구 실행 핸들러
+
+  // 리소스 조회 핸들러
+  const handleViewResource = async (serverId: string, uri: string) => {
+    try {
+      const result = await mcpManager.readResource(serverId, uri);
+      console.log(`리소스 조회 결과 (${uri}):`, result);
+      // 여기에 리소스 조회 결과를 표시하는 로직 추가 (예: 모달, 알림 등)
+      return result;
+    } catch (error) {
+      console.error(`리소스 조회 오류 (${uri}):`, error);
+      throw error;
+    }
+  };
+
+  // 프롬프트 실행 핸들러
+  const handleExecutePrompt = async (serverId: string, promptName: string, args: Record<string, any>) => {
+    try {
+      const result = await mcpManager.executePrompt(serverId, promptName, args);
+      console.log(`프롬프트 실행 결과 (${promptName}):`, result);
+      // 여기에 프롬프트 실행 결과를 표시하는 로직 추가 (예: 모달, 알림 등)
+      return result;
+    } catch (error) {
+      console.error(`프롬프트 실행 오류 (${promptName}):`, error);
+      throw error;
+    }
+  };
+
   const handleExecuteTool = async (serverId: string, toolName: string, args: Record<string, any>) => {
     try {
       const response = await fetch(`${BASE_URL}/tools/call`, {
@@ -462,30 +494,12 @@ export default function McpServerConfig() {
                 {activeTab === 'resources' && (
                   <div className="mt-2">
                     {serverResources.length > 0 ? (
-                      <div className="bg-base-100 p-4 rounded-lg">
-                        <div className="overflow-x-auto">
-                          <table className="table w-full">
-                            <thead>
-                              <tr>
-                                <th>이름</th>
-                                <th>URI</th>
-                                <th>설명</th>
-                                <th>MIME 타입</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {serverResources.map((resource, index) => (
-                                <tr key={`${resource.uri}-${index}`}>
-                                  <td className="font-medium">{resource.name}</td>
-                                  <td className="font-mono text-xs">{resource.uri}</td>
-                                  <td>{resource.description}</td>
-                                  <td className="font-mono text-xs">{resource.mimeType}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
+                      <MCPResourcePanel 
+                        resources={serverResources.map(resource => ({ ...resource, server_id: selectedServerId }))}
+                        onViewResource={handleViewResource}
+                        isLoading={false}
+                        className="bg-base-100 p-4 rounded-lg"
+                      />
                     ) : (
                       <div className="alert alert-info">
                         <span>이 서버에 사용 가능한 리소스가 없습니다.</span>
@@ -498,31 +512,12 @@ export default function McpServerConfig() {
                 {activeTab === 'prompts' && (
                   <div className="mt-2">
                     {serverPrompts.length > 0 ? (
-                      <div className="bg-base-100 p-4 rounded-lg">
-                        <div className="space-y-4">
-                          {serverPrompts.map((prompt, index) => (
-                            <div key={`${prompt.name}-${index}`} className="border p-4 rounded-lg">
-                              <h4 className="font-bold mb-2">{prompt.name}</h4>
-                              <p className="text-sm mb-3">{prompt.description}</p>
-                              
-                              {prompt.arguments && prompt.arguments.length > 0 && (
-                                <div>
-                                  <h5 className="font-semibold text-sm mb-2">인자:</h5>
-                                  <ul className="list-disc pl-5 text-sm">
-                                    {prompt.arguments.map((arg, argIndex) => (
-                                      <li key={argIndex}>
-                                        <span className="font-mono">{arg.name}</span>
-                                        {arg.required && <span className="text-red-500 ml-1">*</span>}
-                                        {arg.description && <span className="ml-2">- {arg.description}</span>}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      <MCPPromptPanel 
+                        prompts={serverPrompts.map(prompt => ({ ...prompt, server_id: selectedServerId }))}
+                        onExecutePrompt={handleExecutePrompt}
+                        isLoading={false}
+                        className="bg-base-100 p-4 rounded-lg"
+                      />
                     ) : (
                       <div className="alert alert-info">
                         <span>이 서버에 사용 가능한 프롬프트가 없습니다.</span>
