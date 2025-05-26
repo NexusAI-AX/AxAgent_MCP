@@ -1,22 +1,14 @@
 {
     "mcpServers": {
       "ClaudeTalkToFigma": {
-        "command": "cmd",
+        "command": "npx",
         "args": [
-          "/c",
-          "npx",
           "claude-talk-to-figma-mcp@latest"
         ]
-      }
-      ,
-      "Context7": {
-        "command": "cmd",
-        "args": [
-          "/c",
-          "npx",
-          "-y",
-          "@upstash/context7-mcp@latest"
-        ]
+      },
+      "puppeteer": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-puppeteer"]
       }
     }
   }

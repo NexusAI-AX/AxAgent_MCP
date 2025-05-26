@@ -5,7 +5,7 @@ import { MCPResource } from '../utils/mcp-client';
 
 interface MCPResourcePanelProps {
   resources: MCPResource[];
-  onViewResource?: (serverId: string, uri: string) => Promise<void>;
+  onViewResource?: (serverId: string, uri: string) => Promise<any>;
   isLoading?: boolean;
   className?: string;
 }
@@ -40,7 +40,8 @@ const MCPResourcePanel: React.FC<MCPResourcePanelProps> = ({
     if (!onViewResource) return;
     
     try {
-      await onViewResource(resource.server_id, resource.uri);
+      const result = await onViewResource(resource.server_id, resource.uri);
+      alert(JSON.stringify(result, null, 2));
     } catch (error) {
       console.error(`리소스 조회 오류 (${resource.uri}):`, error);
     }
