@@ -37,6 +37,15 @@ const MCPResourcePanel: React.FC<MCPResourcePanelProps> = ({
 
   // 리소스 조회 처리
   const handleViewResource = useCallback(async (resource: MCPResource) => {
+    // 이미 content가 있는지 확인
+    if (resource.content) {
+      // 이미 가져온 데이터 사용
+      console.log(`이미 가져온 리소스 내용 사용: ${resource.uri}`);
+      alert(JSON.stringify(resource.content, null, 2));
+      return;
+    }
+    
+    // 데이터가 없는 경우에만 API 호출
     if (!onViewResource) return;
     
     try {

@@ -3,8 +3,13 @@ import React, { useState, useCallback } from 'react';
 import { Search, MessageSquare, ChevronDown, ChevronUp, Play } from 'lucide-react';
 import { MCPPrompt } from '../utils/mcp-client';
 
+// MCPPrompt 인터페이스를 확장하여 details 속성 추가
+interface MCPPromptWithDetails extends MCPPrompt {
+  details?: any;
+}
+
 interface MCPPromptPanelProps {
-  prompts: MCPPrompt[];
+  prompts: MCPPromptWithDetails[];
   onExecutePrompt?: (serverId: string, promptName: string, args: Record<string, any>) => Promise<any>;
   isLoading?: boolean;
   className?: string;
@@ -36,7 +41,7 @@ const MCPPromptPanel: React.FC<MCPPromptPanelProps> = ({
     }
     acc[prompt.server_id].push(prompt);
     return acc;
-  }, {} as Record<string, MCPPrompt[]>);
+  }, {} as Record<string, MCPPromptWithDetails[]>);
 
   // 프롬프트 확장/축소 토글
   const togglePromptExpand = useCallback((promptId: string) => {
@@ -58,7 +63,7 @@ const MCPPromptPanel: React.FC<MCPPromptPanelProps> = ({
   }, []);
 
   // 프롬프트 실행 처리
-  const handleExecutePrompt = useCallback(async (prompt: MCPPrompt) => {
+  const handleExecutePrompt = useCallback(async (prompt: MCPPromptWithDetails) => {
     if (!onExecutePrompt) return;
     
     const promptId = `${prompt.server_id}-${prompt.name}`;
@@ -75,7 +80,11 @@ const MCPPromptPanel: React.FC<MCPPromptPanelProps> = ({
       setPromptResults(prev => ({ ...prev, [promptId]: null }));
       setExecutingPrompts(prev => ({ ...prev, [promptId]: true }));
       
+      // 이미 상세 정보가 있는지 확인
       console.log(`프롬프트 실행 중 (${prompt.name}), 인자:`, args);
+      console.log(`프롬프트 상세 정보:`, prompt.details ? '있음' : '없음');
+      
+      // 프롬프트 실행 API 호출
       const result = await onExecutePrompt(prompt.server_id, prompt.name, args);
       
       console.log(`프롬프트 실행 결과 (${prompt.name}):`, result);
@@ -97,7 +106,7 @@ const MCPPromptPanel: React.FC<MCPPromptPanelProps> = ({
   }, [onExecutePrompt, promptArguments]);
 
   // 프롬프트 ID 생성 헬퍼 함수
-  const getPromptId = useCallback((prompt: MCPPrompt) => {
+  const getPromptId = useCallback((prompt: MCPPromptWithDetails) => {
     return `${prompt.server_id}-${prompt.name}`;
   }, []);
 

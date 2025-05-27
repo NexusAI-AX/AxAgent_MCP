@@ -6,7 +6,7 @@ import MCPResourcePanel from './MCPResourcePanel';
 import { MCPTool, MCPResource, MCPPrompt } from '../utils/mcp-client';
 import { useAppContext } from '../utils/app.context';
 import { MCPManager } from '../utils/mcp-client';
-import { OpenInNewTab, XCloseButton } from '../utils/common';
+import { XCloseButton } from '../utils/common';
 import { CanvasType } from '../utils/types';
 import { PlayIcon, StopIcon } from '@heroicons/react/24/outline';
 
@@ -15,7 +15,7 @@ const BASE_URL = 'http://localhost:8000';
 interface McpServer {
   name: string;
   description: string;
-  command: string;
+  command: string | string[] | any; // command가 문자열 또는 배열 형태로 올 수 있음
   args: string[];
   env: Record<string, string>;
   auto_start: boolean;
@@ -154,7 +154,23 @@ export default function McpServerConfig() {
       if (resourcesResponse.ok) {
         const resources = await resourcesResponse.json();
         console.log(`리소스 가져오기 성공: ${resources.length}개 리소스`);
-        setServerResources(resources);
+        
+        // 리소스 상세 정보 미리 가져오기
+        const resourcesWithContent = await Promise.all(
+          resources.map(async (resource: MCPResource) => {
+            try {
+              // 각 리소스의 상세 내용 가져오기
+              const content = await mcpManager.readResource(serverId, resource.uri);
+              console.log(`리소스 상세 정보 가져오기 성공: ${resource.uri}`);
+              return { ...resource, content };
+            } catch (error) {
+              console.error(`리소스 상세 정보 가져오기 실패: ${resource.uri}`, error);
+              return resource; // 실패 시 원본 리소스 반환
+            }
+          })
+        );
+        
+        setServerResources(resourcesWithContent);
       } else {
         const errorText = await resourcesResponse.text();
         console.error(`리소스 가져오기 실패: ${resourcesResponse.status}`, errorText);
@@ -165,7 +181,22 @@ export default function McpServerConfig() {
       if (promptsResponse.ok) {
         const prompts = await promptsResponse.json();
         console.log(`프롬프트 가져오기 성공: ${prompts.length}개 프롬프트`);
-        setServerPrompts(prompts);
+        
+        // 프롬프트 상세 정보 미리 가져오기
+        // 프롬프트의 경우 미리 가져올 필요가 없으나, 추후 필요할 수 있으므로 기본 정보만 저장
+        const promptsWithDetails = prompts.map((prompt: MCPPrompt) => {
+          return { 
+            ...prompt, 
+            // 프롬프트 상세 정보는 실제 사용시 가져올 수 있도록 기본 정보 저장
+            details: { 
+              name: prompt.name, 
+              description: prompt.description,
+              server_id: serverId 
+            } 
+          };
+        });
+        
+        setServerPrompts(promptsWithDetails);
       } else {
         const errorText = await promptsResponse.text();
         console.error(`프롬프트 가져오기 실패: ${promptsResponse.status}`, errorText);
@@ -349,9 +380,24 @@ export default function McpServerConfig() {
   // 리소스 조회 핸들러
   const handleViewResource = async (serverId: string, uri: string) => {
     try {
+      // 이미 가져온 리소스 중에서 찾기
+      const existingResource = serverResources.find(r => r.uri === uri && r.server_id === serverId);
+      
+      // 이미 상세 정보가 있으면 그대로 반환
+      if (existingResource && existingResource.content) {
+        console.log(`캐시된 리소스 사용 (${uri}):`, existingResource.content);
+        return existingResource.content;
+      }
+      
+      // 없으면 새로 가져오기
       const result = await mcpManager.readResource(serverId, uri);
       console.log(`리소스 조회 결과 (${uri}):`, result);
-      // 여기에 리소스 조회 결과를 표시하는 로직 추가 (예: 모달, 알림 등)
+      
+      // 리소스 목록 업데이트 (상세 정보 추가)
+      setServerResources(prev => 
+        prev.map(r => r.uri === uri && r.server_id === serverId ? { ...r, content: result } : r)
+      );
+      
       return result;
     } catch (error) {
       console.error(`리소스 조회 오류 (${uri}):`, error);

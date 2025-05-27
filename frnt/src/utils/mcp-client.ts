@@ -26,6 +26,7 @@ export interface MCPResource {
   description: string;
   mimeType: string;
   server_id: string;
+  content?: any; // 리소스 내용을 저장하기 위한 속성 추가
 }
 
 export interface MCPPrompt {
@@ -199,7 +200,7 @@ export class MCPClient {
       body: JSON.stringify({
         server_id: serverId,
         tool_name: toolName,
-        arguments,
+        arguments: toolArgs,
       }),
     });
   }
