@@ -528,21 +528,21 @@ export default function McpServerConfig() {
             {runningServers[selectedServerId] && (
               <div className="w-full">
                 {/* 탭 버튼 */}
-                <div className="flex border-b mb-4">
+                <div className="tabs tabs-bordered mb-4">
                   <button
-                    className={`py-2 px-4 font-medium ${activeTab === 'tools' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`tab tab-bordered ${activeTab === 'tools' ? 'tab-active' : ''}`}
                     onClick={() => setActiveTab('tools')}
                   >
                     도구 ({serverTools.length})
                   </button>
                   <button
-                    className={`py-2 px-4 font-medium ${activeTab === 'resources' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`tab tab-bordered ${activeTab === 'resources' ? 'tab-active' : ''}`}
                     onClick={() => setActiveTab('resources')}
                   >
                     리소스 ({serverResources.length})
                   </button>
                   <button
-                    className={`py-2 px-4 font-medium ${activeTab === 'prompts' ? 'border-b-2 border-primary text-primary' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`tab tab-bordered ${activeTab === 'prompts' ? 'tab-active' : ''}`}
                     onClick={() => setActiveTab('prompts')}
                   >
                     프롬프트 ({serverPrompts.length})

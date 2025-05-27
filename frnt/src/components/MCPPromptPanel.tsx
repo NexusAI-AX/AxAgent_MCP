@@ -102,25 +102,25 @@ const MCPPromptPanel: React.FC<MCPPromptPanelProps> = ({
   }, []);
 
   return (
-    <div className={`flex flex-col h-full bg-white ${className || ''}`}>
+    <div className={`flex flex-col h-full bg-base-100 ${className || ''}`}>
       {/* 헤더 */}
-      <div className="p-4 border-b bg-gray-50">
+      <div className="p-4 border-b bg-base-200">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold">MCP 프롬프트</h3>
-          <span className="text-sm text-gray-500">
+          <h3 className="text-lg font-semibold text-base-content">MCP 프롬프트</h3>
+          <span className="text-sm text-base-content/70">
             {filteredPrompts.length}개 프롬프트
           </span>
         </div>
         
         {/* 검색 */}
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-base-content/50" />
           <input
             type="text"
             placeholder="프롬프트 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-2 input input-bordered input-sm focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
       </div>
@@ -128,8 +128,8 @@ const MCPPromptPanel: React.FC<MCPPromptPanelProps> = ({
       {/* 프롬프트 목록 */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
-          <div className="p-8 text-center text-gray-500">
-            <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <div className="p-8 text-center text-base-content/70">
+            <div className="loading loading-spinner loading-md mx-auto mb-4"></div>
             <p className="text-sm">프롬프트 로딩 중...</p>
           </div>
         ) : (
@@ -137,8 +137,8 @@ const MCPPromptPanel: React.FC<MCPPromptPanelProps> = ({
             {Object.entries(promptsByServer).map(([serverId, serverPrompts]) => (
               <div key={serverId} className="border-b">
                 {/* 서버 헤더 */}
-                <div className="px-4 py-2 bg-gray-100 border-b">
-                  <h4 className="font-medium text-sm text-gray-700">
+                <div className="px-4 py-2 bg-base-200 border-b">
+                  <h4 className="font-medium text-sm text-base-content">
                     {serverId} ({serverPrompts.length}개 프롬프트)
                   </h4>
                 </div>
@@ -153,52 +153,29 @@ const MCPPromptPanel: React.FC<MCPPromptPanelProps> = ({
                     return (
                       <div 
                         key={`${prompt.name}-${index}`} 
-                        className="border rounded-lg overflow-hidden bg-white"
+                        className="card card-compact bg-base-100 shadow-sm"
                       >
                         {/* 프롬프트 헤더 */}
-                        <div className="flex flex-col">
-                          <div 
-                            className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
-                            onClick={() => togglePromptExpand(promptId)}
-                          >
-                            <div className="flex items-center space-x-2">
-                              <MessageSquare className="w-5 h-5 text-blue-500" />
-                              <h4 className="font-medium">{prompt.name}</h4>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              {isExecuting && (
-                                <span className="text-xs text-gray-500">실행 중...</span>
-                              )}
-                              {isExpanded ? (
-                                <ChevronUp className="w-4 h-4 text-gray-500" />
-                              ) : (
-                                <ChevronDown className="w-4 h-4 text-gray-500" />
-                              )}
-                            </div>
+                        <div 
+                          className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-base-200"
+                          onClick={() => togglePromptExpand(promptId)}
+                        >
+                          <div className="flex-1">
+                            <h5 className="font-medium text-base-content">{prompt.name}</h5>
+                            <p className="text-xs text-base-content/70 mt-1">{prompt.description || '설명 없음'}</p>
                           </div>
-                          
-                          {/* 프롬프트 실행 결과 간략히 표시 (헤더에) */}
-                          {!isExpanded && promptResults[promptId] && (
-                            <div className="px-3 pb-2 text-xs">
-                              <div className="flex items-center">
-                                <span className="font-medium text-gray-700">결과:</span>
-                                <div className="ml-2 overflow-hidden text-ellipsis whitespace-nowrap max-w-[200px] text-gray-600">
-                                  {promptResults[promptId].error ? (
-                                    <span className="text-red-500">오류 발생</span>
-                                  ) : (
-                                    <span>응답 받음</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          )}
+                          <div className="flex items-center">
+                            {isExpanded ? 
+                              <ChevronUp className="w-5 h-5 text-base-content/50" /> : 
+                              <ChevronDown className="w-5 h-5 text-base-content/50" />
+                            }
+                          </div>
                         </div>
                         
-                        {/* 프롬프트 상세 */}
+                        {/* 프롬프트 내용 */}
                         {isExpanded && (
-                          <div className="p-3 border-t bg-gray-50">
-                            {/* 설명 */}
-                            <p className="text-sm text-gray-600 mb-4">{prompt.description}</p>
+                          <div className="px-4 pb-4 bg-base-200">
+                            <p className="text-sm text-base-content/80 mb-4">{prompt.description}</p>
                             
                             {/* 인자 */}
                             {prompt.arguments && prompt.arguments.length > 0 && (
@@ -209,22 +186,22 @@ const MCPPromptPanel: React.FC<MCPPromptPanelProps> = ({
                                   
                                   return (
                                     <div key={argIndex} className="space-y-1">
-                                      <label className="block text-sm">
-                                        <span className="font-mono">{arg.name}</span>
-                                        {arg.required && <span className="text-red-500 ml-1">*</span>}
-                                        {arg.description && (
-                                          <span className="text-xs text-gray-500 ml-2">
-                                            - {arg.description}
-                                          </span>
-                                        )}
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={argValue || ''}
-                                        onChange={(e) => handleArgumentChange(promptId, arg.name, e.target.value)}
-                                        className="w-full p-2 border rounded-md text-sm"
-                                        placeholder={`${arg.name} 값 입력...`}
-                                      />
+                                       <label className="block text-sm">
+                                         <span className="font-mono">{arg.name}</span>
+                                         {arg.required && <span className="text-error ml-1">*</span>}
+                                         {arg.description && (
+                                           <span className="text-xs text-base-content/70 ml-2">
+                                             - {arg.description}
+                                           </span>
+                                         )}
+                                       </label>
+                                       <input
+                                         type="text"
+                                         value={argValue || ''}
+                                         onChange={(e) => handleArgumentChange(promptId, arg.name, e.target.value)}
+                                         className="w-full input input-bordered input-sm"
+                                         placeholder={`${arg.name} 값 입력...`}
+                                       />
                                     </div>
                                   );
                                 })}
@@ -236,7 +213,7 @@ const MCPPromptPanel: React.FC<MCPPromptPanelProps> = ({
                               <button
                                 onClick={() => handleExecutePrompt(prompt)}
                                 disabled={isExecuting}
-                                className="flex items-center space-x-1 px-3 py-2 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="btn btn-primary btn-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Play className="w-4 h-4" />
                                 <span>프롬프트 실행</span>
@@ -244,15 +221,15 @@ const MCPPromptPanel: React.FC<MCPPromptPanelProps> = ({
                               
                               {/* 실행 결과 표시 */}
                               {promptResults[promptId] && (
-                                <div className="mt-4 border rounded-md p-3 bg-gray-100">
-                                  <h6 className="font-medium text-sm mb-2">실행 결과:</h6>
+                                <div className="mt-4 border rounded-md p-3 bg-base-200">
+                                  <h6 className="font-medium text-sm mb-2 text-base-content">실행 결과:</h6>
                                   {promptResults[promptId].error ? (
-                                    <div className="text-red-500 text-sm">
+                                    <div className="text-error text-sm">
                                       <p>오류: {promptResults[promptId].error}</p>
                                     </div>
                                   ) : (
                                     <div className="overflow-auto max-h-60">
-                                      <pre className="text-xs whitespace-pre-wrap bg-gray-50 p-2 rounded border">
+                                      <pre className="text-xs whitespace-pre-wrap bg-base-100 p-2 rounded border">
                                         {JSON.stringify(promptResults[promptId], null, 2)}
                                       </pre>
                                     </div>
@@ -270,8 +247,8 @@ const MCPPromptPanel: React.FC<MCPPromptPanelProps> = ({
             ))}
 
                 {filteredPrompts.length === 0 && (
-              <div className="p-8 text-center text-gray-500">
-                <MessageSquare className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <div className="p-8 text-center text-base-content/70">
+                <MessageSquare className="w-12 h-12 mx-auto mb-4 text-base-content/30" />
                 <p className="text-sm">
                   {searchQuery ? '검색 결과가 없습니다.' : '사용 가능한 프롬프트가 없습니다.'}
                 </p>

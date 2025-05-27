@@ -48,25 +48,25 @@ const MCPResourcePanel: React.FC<MCPResourcePanelProps> = ({
   }, [onViewResource]);
 
   return (
-    <div className={`flex flex-col h-full bg-white ${className || ''}`}>
+    <div className={`flex flex-col h-full bg-base-100 ${className || ''}`}>
       {/* 헤더 */}
-      <div className="p-4 border-b bg-gray-50">
+      <div className="p-4 border-b bg-base-200">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold">MCP 리소스</h3>
-          <span className="text-sm text-gray-500">
+          <h3 className="text-lg font-semibold text-base-content">MCP 리소스</h3>
+          <span className="text-sm text-base-content/70">
             {filteredResources.length}개 리소스
           </span>
         </div>
         
         {/* 검색 */}
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-base-content/50" />
           <input
             type="text"
             placeholder="리소스 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-2 input input-bordered input-sm focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
       </div>
@@ -74,8 +74,8 @@ const MCPResourcePanel: React.FC<MCPResourcePanelProps> = ({
       {/* 리소스 목록 */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
-          <div className="p-8 text-center text-gray-500">
-            <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <div className="p-8 text-center text-base-content/70">
+            <div className="loading loading-spinner loading-md mx-auto mb-4"></div>
             <p className="text-sm">리소스 로딩 중...</p>
           </div>
         ) : (
@@ -83,39 +83,39 @@ const MCPResourcePanel: React.FC<MCPResourcePanelProps> = ({
             {Object.entries(resourcesByServer).map(([serverId, serverResources]) => (
               <div key={serverId} className="border-b">
                 {/* 서버 헤더 */}
-                <div className="px-4 py-2 bg-gray-100 border-b">
-                  <h4 className="font-medium text-sm text-gray-700">
+                <div className="px-4 py-2 bg-base-200 border-b">
+                  <h4 className="font-medium text-sm text-base-content">
                     {serverId} ({serverResources.length}개 리소스)
                   </h4>
                 </div>
 
                 {/* 리소스 테이블 */}
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
+                  <table className="table table-zebra w-full text-sm">
+                    <thead className="bg-base-200">
                       <tr>
-                        <th className="px-4 py-2 text-left font-medium text-gray-600">이름</th>
-                        <th className="px-4 py-2 text-left font-medium text-gray-600">URI</th>
-                        <th className="px-4 py-2 text-left font-medium text-gray-600">설명</th>
-                        <th className="px-4 py-2 text-left font-medium text-gray-600">MIME 타입</th>
-                        {onViewResource && <th className="px-4 py-2 text-left font-medium text-gray-600">조회</th>}
+                        <th className="text-left font-medium">이름</th>
+                        <th className="text-left font-medium">URI</th>
+                        <th className="text-left font-medium">설명</th>
+                        <th className="text-left font-medium">MIME 타입</th>
+                        {onViewResource && <th className="text-left font-medium">조회</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {serverResources.map((resource, index) => (
                         <tr 
                           key={`${resource.uri}-${index}`}
-                          className="border-t hover:bg-gray-50"
+                          className="hover"
                         >
-                          <td className="px-4 py-3 font-medium">{resource.name}</td>
-                          <td className="px-4 py-3 font-mono text-xs">{resource.uri}</td>
-                          <td className="px-4 py-3">{resource.description}</td>
-                          <td className="px-4 py-3 font-mono text-xs">{resource.mimeType}</td>
+                          <td className="font-medium">{resource.name}</td>
+                          <td className="font-mono text-xs">{resource.uri}</td>
+                          <td>{resource.description}</td>
+                          <td className="font-mono text-xs">{resource.mimeType}</td>
                           {onViewResource && (
-                            <td className="px-4 py-3">
+                            <td>
                               <button
                                 onClick={() => handleViewResource(resource)}
-                                className="px-2 py-1 text-xs font-medium rounded bg-blue-500 text-white hover:bg-blue-600"
+                                className="btn btn-primary btn-xs"
                               >
                                 조회
                               </button>
@@ -130,8 +130,8 @@ const MCPResourcePanel: React.FC<MCPResourcePanelProps> = ({
             ))}
 
             {filteredResources.length === 0 && (
-              <div className="p-8 text-center text-gray-500">
-                <Settings className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <div className="p-8 text-center text-base-content/70">
+                <Settings className="w-12 h-12 mx-auto mb-4 text-base-content/30" />
                 <p className="text-sm">
                   {searchQuery ? '검색 결과가 없습니다.' : '사용 가능한 리소스가 없습니다.'}
                 </p>

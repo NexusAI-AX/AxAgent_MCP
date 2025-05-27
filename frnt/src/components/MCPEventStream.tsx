@@ -63,6 +63,16 @@ const MCPEventStream: React.FC<MCPEventStreamProps> = ({
     }
   }, []);
 
+  // 이벤트 배경색 결정
+  const getEventBgColor = useCallback((level: 'info' | 'success' | 'warning' | 'error') => {
+    switch (level) {
+      case 'success': return 'border-success bg-success/10';
+      case 'error': return 'border-error bg-error/10';
+      case 'warning': return 'border-warning bg-warning/10';
+      default: return 'border-info bg-info/10';
+    }
+  }, []);
+
   // 이벤트 필터링
   const filteredEvents = useCallback(() => {
     return events.filter(event => {
@@ -133,13 +143,13 @@ const MCPEventStream: React.FC<MCPEventStreamProps> = ({
     
     switch (level) {
       case 'success':
-        return <CheckCircle className={`${iconClass} text-green-500`} />;
+        return <CheckCircle className={`${iconClass} text-success`} />;
       case 'error':
-        return <XCircle className={`${iconClass} text-red-500`} />;
+        return <XCircle className={`${iconClass} text-error`} />;
       case 'warning':
-        return <AlertCircle className={`${iconClass} text-yellow-500`} />;
+        return <AlertCircle className={`${iconClass} text-warning`} />;
       default:
-        return <Info className={`${iconClass} text-blue-500`} />;
+        return <Info className={`${iconClass} text-info`} />;
     }
   }, [getEventLevel]);
 
@@ -164,38 +174,57 @@ const MCPEventStream: React.FC<MCPEventStreamProps> = ({
     }
   }, []);
 
+  // 필터 초기화
+  const resetFilters = useCallback(() => {
+    setFilter({
+      types: new Set(),
+      servers: new Set(),
+      levels: new Set(),
+      searchQuery: ''
+    });
+  }, []);
+
+  // 이벤트 목록 스크롤 핸들러
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    const isAtBottom = Math.abs(scrollHeight - clientHeight - scrollTop) < 5;
+    setIsAutoScroll(isAtBottom);
+  }, []);
+
+  // 타임스탬프 포맷
+  const formatTimestamp = useCallback((timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString();
+  }, []);
+
+  // 이벤트 데이터 포맷
+  const formatEventData = useCallback((event: MCPEvent) => {
+    return JSON.stringify(event.data, null, 2);
+  }, []);
+
   return (
-    <div className={`flex flex-col h-full bg-white ${className}`}>
+    <div className={`flex flex-col h-full bg-base-100 ${className || ''}`}>
       {/* 헤더 */}
-      <div className="p-4 border-b bg-gray-50">
+      <div className="p-4 border-b bg-base-200">
         <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-base-content">이벤트 스트림</h3>
           <div className="flex items-center space-x-2">
-            <Activity className="w-5 h-5" />
-            <h3 className="text-lg font-semibold">이벤트 스트림</h3>
-            <div className={`px-2 py-1 rounded text-xs font-medium ${
-              isConnected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-            }`}>
-              {isConnected ? '🟢 연결됨' : '🔴 연결 안됨'}
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-1">
-            <span className="text-sm text-gray-500">
-              {displayedEvents.length}/{events.length}
+            <span className={`badge ${isConnected ? 'badge-success' : 'badge-error'} gap-1`}>
+              <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-success-content' : 'bg-error-content'}`}></span>
+              {isConnected ? '연결됨' : '연결 끊김'}
+            </span>
+            <span className="text-sm text-base-content/70">
+              {displayedEvents.length}개 이벤트
             </span>
           </div>
         </div>
 
-        {/* 컨트롤 */}
+        {/* 제어 버튼 */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1">
             <button
               onClick={() => setIsPaused(!isPaused)}
-              className={`px-3 py-1 text-xs font-medium rounded flex items-center space-x-1 ${
-                isPaused 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-yellow-100 text-yellow-800'
-              }`}
+              className={`btn btn-xs ${isPaused ? 'btn-warning' : 'btn-ghost'} gap-1`}
             >
               {isPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
               <span>{isPaused ? '재개' : '일시정지'}</span>
@@ -203,11 +232,7 @@ const MCPEventStream: React.FC<MCPEventStreamProps> = ({
             
             <button
               onClick={() => setIsAutoScroll(!isAutoScroll)}
-              className={`px-3 py-1 text-xs font-medium rounded flex items-center space-x-1 ${
-                isAutoScroll 
-                  ? 'bg-blue-100 text-blue-800' 
-                  : 'bg-gray-100 text-gray-800'
-              }`}
+              className={`btn btn-xs ${isAutoScroll ? 'btn-primary' : 'btn-ghost'} gap-1`}
             >
               {isAutoScroll ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
               <span>자동스크롤</span>
@@ -215,11 +240,7 @@ const MCPEventStream: React.FC<MCPEventStreamProps> = ({
 
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`px-3 py-1 text-xs font-medium rounded flex items-center space-x-1 ${
-                showFilters 
-                  ? 'bg-purple-100 text-purple-800' 
-                  : 'bg-gray-100 text-gray-800'
-              }`}
+              className={`btn btn-xs ${showFilters ? 'btn-secondary' : 'btn-ghost'} gap-1`}
             >
               <Filter className="w-3 h-3" />
               <span>필터</span>
@@ -229,7 +250,7 @@ const MCPEventStream: React.FC<MCPEventStreamProps> = ({
           <div className="flex items-center space-x-1">
             <button
               onClick={exportEvents}
-              className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+              className="btn btn-ghost btn-xs btn-square"
               title="이벤트 내보내기"
             >
               <Download className="w-4 h-4" />
@@ -237,7 +258,7 @@ const MCPEventStream: React.FC<MCPEventStreamProps> = ({
             
             <button
               onClick={clearEvents}
-              className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+              className="btn btn-ghost btn-xs btn-square text-error"
               title="이벤트 지우기"
             >
               <Trash2 className="w-4 h-4" />
@@ -247,38 +268,43 @@ const MCPEventStream: React.FC<MCPEventStreamProps> = ({
 
         {/* 필터 패널 */}
         {showFilters && (
-          <div className="mt-4 p-3 bg-white border rounded-lg space-y-3">
+          <div className="mt-4 p-3 bg-base-200 border rounded-lg space-y-3">
             {/* 검색 */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">검색</label>
+            <div className="flex items-center space-x-2">
               <input
                 type="text"
                 placeholder="이벤트 검색..."
                 value={filter.searchQuery}
                 onChange={(e) => setFilter(prev => ({ ...prev, searchQuery: e.target.value }))}
-                className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="flex-1 input input-bordered input-sm"
               />
+              {filter.searchQuery && (
+                <button
+                  onClick={() => setFilter(prev => ({ ...prev, searchQuery: '' }))}
+                  className="btn btn-ghost btn-xs btn-square"
+                >
+                  <XCircle className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             {/* 이벤트 타입 */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">이벤트 타입</label>
-              <div className="flex flex-wrap gap-1">
+              <h4 className="text-xs font-medium text-base-content mb-2">이벤트 타입</h4>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
                 {uniqueTypes.map(type => (
-                  <button
-                    key={type}
-                    onClick={() => setFilter(prev => ({ 
-                      ...prev, 
-                      types: toggleFilter(prev.types, type) 
-                    }))}
-                    className={`px-2 py-1 text-xs rounded ${
-                      filter.types.has(type)
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {type}
-                  </button>
+                  <label key={type} className="flex items-center space-x-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filter.types.has(type)}
+                      onChange={() => setFilter(prev => ({
+                        ...prev,
+                        types: toggleFilter(prev.types, type)
+                      }))}
+                      className="checkbox checkbox-xs checkbox-primary"
+                    />
+                    <span className="text-base-content/80">{type}</span>
+                  </label>
                 ))}
               </div>
             </div>
@@ -286,23 +312,21 @@ const MCPEventStream: React.FC<MCPEventStreamProps> = ({
             {/* 서버 */}
             {uniqueServers.length > 0 && (
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">서버</label>
-                <div className="flex flex-wrap gap-1">
+                <h4 className="text-xs font-medium text-base-content mb-2">서버</h4>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
                   {uniqueServers.map(server => (
-                    <button
-                      key={server}
-                      onClick={() => setFilter(prev => ({ 
-                        ...prev, 
-                        servers: toggleFilter(prev.servers, server) 
-                      }))}
-                      className={`px-2 py-1 text-xs rounded ${
-                        filter.servers.has(server)
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      {server}
-                    </button>
+                    <label key={server} className="flex items-center space-x-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filter.servers.has(server)}
+                        onChange={() => setFilter(prev => ({
+                          ...prev,
+                          servers: toggleFilter(prev.servers, server)
+                        }))}
+                        className="checkbox checkbox-xs checkbox-primary"
+                      />
+                      <span className="text-base-content/80">{server}</span>
+                    </label>
                   ))}
                 </div>
               </div>
@@ -310,38 +334,34 @@ const MCPEventStream: React.FC<MCPEventStreamProps> = ({
 
             {/* 레벨 */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">레벨</label>
-              <div className="flex flex-wrap gap-1">
+              <h4 className="text-xs font-medium text-base-content mb-2">레벨</h4>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
                 {(['info', 'success', 'warning', 'error'] as const).map(level => (
-                  <button
-                    key={level}
-                    onClick={() => setFilter(prev => ({ 
-                      ...prev, 
-                      levels: toggleFilter(prev.levels, level) 
-                    }))}
-                    className={`px-2 py-1 text-xs rounded flex items-center space-x-1 ${
-                      filter.levels.has(level)
-                        ? `bg-${level === 'info' ? 'blue' : level === 'success' ? 'green' : level === 'warning' ? 'yellow' : 'red'}-100 text-${level === 'info' ? 'blue' : level === 'success' ? 'green' : level === 'warning' ? 'yellow' : 'red'}-800`
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    <span>{level}</span>
-                  </button>
+                  <label key={level} className="flex items-center space-x-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filter.levels.has(level)}
+                      onChange={() => setFilter(prev => ({
+                        ...prev,
+                        levels: toggleFilter(prev.levels, level)
+                      }))}
+                      className="checkbox checkbox-xs checkbox-primary"
+                    />
+                    <span className="text-base-content/80">{level}</span>
+                  </label>
                 ))}
               </div>
             </div>
 
-            <button
-              onClick={() => setFilter({
-                types: new Set(),
-                servers: new Set(),
-                levels: new Set(),
-                searchQuery: ''
-              })}
-              className="w-full px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-            >
-              필터 초기화
-            </button>
+            {/* 필터 초기화 버튼 */}
+            <div className="flex justify-end">
+              <button
+                onClick={resetFilters}
+                className="btn btn-ghost btn-xs"
+              >
+                필터 초기화
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -350,64 +370,46 @@ const MCPEventStream: React.FC<MCPEventStreamProps> = ({
       <div 
         ref={eventContainerRef}
         className="flex-1 overflow-y-auto p-4 space-y-2"
-        onScroll={(e) => {
-          const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-          const isAtBottom = Math.abs(scrollHeight - clientHeight - scrollTop) < 5;
-          setIsAutoScroll(isAtBottom);
-        }}
+        onScroll={handleScroll}
       >
         {displayedEvents.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
-            <Activity className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <p className="text-sm">
-              {events.length === 0 ? '이벤트가 없습니다.' : '필터 조건에 맞는 이벤트가 없습니다.'}
-            </p>
-            {!isConnected && (
-              <p className="text-xs mt-2 text-red-500">
-                이벤트 스트림에 연결되지 않았습니다.
-              </p>
-            )}
+          <div className="h-full flex items-center justify-center text-base-content/70">
+            <div className="text-center">
+              <Activity className="w-12 h-12 mx-auto mb-2 text-base-content/30" />
+              <p>이벤트가 없습니다</p>
+            </div>
           </div>
         ) : (
           displayedEvents.map((event, index) => {
             const level = getEventLevel(event);
-            const timestamp = new Date(event.timestamp);
-            
             return (
-              <div
-                key={index}
-                className={`p-3 rounded-lg border-l-4 ${
-                  level === 'error' ? 'border-red-500 bg-red-50' :
-                  level === 'warning' ? 'border-yellow-500 bg-yellow-50' :
-                  level === 'success' ? 'border-green-500 bg-green-50' :
-                  'border-blue-500 bg-blue-50'
-                }`}
+              <div 
+                key={`${event.timestamp}-${index}`} 
+                className={`card card-compact card-bordered ${getEventBgColor(level)}`}
               >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    {getEventIcon(event)}
-                    <span className="font-medium text-sm">{event.type}</span>
-                    {event.data?.server_id && (
-                      <span className="px-2 py-0.5 bg-gray-200 text-gray-700 rounded text-xs">
-                        {event.data.server_id}
-                      </span>
-                    )}
+                <div className="card-body p-3">
+                  <div className="flex items-start">
+                    <div className="mr-3 mt-0.5">
+                      {getEventIcon(event)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center mb-1">
+                        <span className="font-medium text-sm">{event.type}</span>
+                        {event.data?.server_id && (
+                          <span className="ml-2 badge badge-sm badge-ghost">
+                            {event.data.server_id}
+                          </span>
+                        )}
+                        <span className="ml-auto text-xs text-base-content/60">
+                          {formatTimestamp(event.timestamp)}
+                        </span>
+                      </div>
+                      <pre className="text-xs whitespace-pre-wrap overflow-x-auto bg-base-200 p-2 rounded">
+                        {formatEventData(event)}
+                      </pre>
+                    </div>
                   </div>
-                  <span className="text-xs text-gray-500">
-                    {timestamp.toLocaleTimeString()}
-                  </span>
                 </div>
-                
-                {event.data && Object.keys(event.data).length > 0 && (
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-xs text-gray-600 hover:text-gray-800">
-                      데이터 보기
-                    </summary>
-                    <pre className="mt-2 p-2 bg-white rounded text-xs overflow-x-auto border">
-                      {JSON.stringify(event.data, null, 2)}
-                    </pre>
-                  </details>
-                )}
               </div>
             );
           })

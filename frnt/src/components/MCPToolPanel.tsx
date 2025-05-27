@@ -1,6 +1,6 @@
 // frnt/src/components/MCPToolPanel.tsx
 import React, { useState, useCallback } from 'react';
-import { Play, Settings, Search, ChevronDown, ChevronRight, Copy, ExternalLink } from 'lucide-react';
+import { Play, Settings, Search, ChevronDown, ChevronRight, Copy } from 'lucide-react';
 import { MCPTool } from '../utils/mcp-client';
 
 interface MCPToolPanelProps {
@@ -203,25 +203,25 @@ const MCPToolPanel: React.FC<MCPToolPanelProps> = ({
   }, [updateToolArgument]);
 
   return (
-    <div className={`flex flex-col h-full bg-white ${className}`}>
+    <div className={`flex flex-col h-full bg-base-100 ${className || ''}`}>
       {/* 헤더 */}
-      <div className="p-4 border-b bg-gray-50">
+      <div className="p-4 border-b bg-base-200">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold">MCP 도구</h3>
-          <span className="text-sm text-gray-500">
+          <h3 className="text-lg font-semibold text-base-content">MCP 도구</h3>
+          <span className="text-sm text-base-content/70">
             {filteredTools.length}개 도구
           </span>
         </div>
         
         {/* 검색 */}
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-base-content/50" />
           <input
             type="text"
             placeholder="도구 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-2 input input-bordered input-sm focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
       </div>
@@ -231,8 +231,8 @@ const MCPToolPanel: React.FC<MCPToolPanelProps> = ({
         {Object.entries(toolsByServer).map(([serverId, serverTools]) => (
           <div key={serverId} className="border-b">
             {/* 서버 헤더 */}
-            <div className="px-4 py-2 bg-gray-100 border-b">
-              <h4 className="font-medium text-sm text-gray-700">
+            <div className="px-4 py-2 bg-base-200 border-b">
+              <h4 className="font-medium text-sm text-base-content">
                 {serverId} ({serverTools.length}개 도구)
               </h4>
             </div>
@@ -247,44 +247,70 @@ const MCPToolPanel: React.FC<MCPToolPanelProps> = ({
               return (
                 <div key={toolId} className="border-b last:border-b-0">
                   {/* 도구 헤더 */}
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => toggleToolExpansion(toolId)}
-                          className="p-1 hover:bg-gray-100 rounded"
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="w-4 h-4" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4" />
-                          )}
-                        </button>
-                        <div>
-                          <h5 className="font-medium text-sm">{tool.name}</h5>
-                          <p className="text-xs text-gray-600">{tool.description}</p>
+                  <div 
+                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-base-200"
+                    onClick={() => toggleToolExpansion(toolId)}
+                  >
+                    <div className="flex-1">
+                      <h5 className="font-medium text-base-content">{tool.name}</h5>
+                      <p className="text-xs text-base-content/70 mt-1">{tool.description || '설명 없음'}</p>
+                    </div>
+                    <div className="flex items-center">
+                      {isExpanded ? 
+                        <ChevronDown className="w-5 h-5 text-base-content/50" /> : 
+                        <ChevronRight className="w-5 h-5 text-base-content/50" />
+                      }
+                    </div>
+                  </div>
+
+                  {/* 도구 상세 정보 (확장 시) */}
+                  {isExpanded && (
+                    <div className="mt-4 space-y-3">
+                      {toolArgs.length > 0 ? (
+                        <div className="space-y-3">
+                          <h6 className="text-sm font-medium text-base-content">인수:</h6>
+                          {toolArgs.map((arg) => (
+                            <div key={arg.name} className="mb-3 last:mb-0">
+                              <label className="block text-sm mb-1">
+                                <span className="font-mono">{arg.name}</span>
+                                {arg.required && <span className="text-error ml-1">*</span>}
+                                {arg.description && (
+                                  <span className="text-xs text-base-content/70 ml-2">
+                                    - {arg.description}
+                                  </span>
+                                )}
+                              </label>
+                              {renderArgumentInput(tool, arg)}
+                            </div>
+                          ))}
                         </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-1">
-                        {toolArgs.length > 0 && (
-                          <button
-                            onClick={() => copyToolArgsAsJSON(tool)}
-                            className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
-                            title="인수를 JSON으로 복사"
-                          >
-                            <Copy className="w-3 h-3" />
-                          </button>
-                        )}
-                        
+                      ) : (
+                        <p className="text-xs text-base-content/70">이 도구는 인수가 필요하지 않습니다.</p>
+                      )}
+
+                      {/* 스키마 정보 */}
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-base-content/70 hover:text-base-content">
+                          스키마 보기
+                        </summary>
+                        <pre className="mt-2 p-2 bg-base-200 rounded text-xs overflow-x-auto">
+                          {JSON.stringify(tool.inputSchema, null, 2)}
+                        </pre>
+                      </details>
+
+                      {/* 도구 실행 버튼 */}
+                      <div className="flex items-center justify-between mt-4">
+                        <button 
+                          onClick={() => copyToolArgsAsJSON(tool)}
+                          className="btn btn-ghost btn-xs flex items-center gap-1 text-xs"
+                        >
+                          <Copy className="w-3 h-3" />
+                          <span>JSON으로 복사</span>
+                        </button>
                         <button
                           onClick={() => handleExecuteTool(tool)}
                           disabled={isExecuting || isLoading}
-                          className={`px-3 py-1 text-xs font-medium rounded ${
-                            isExecuting || isLoading
-                              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                              : 'bg-blue-500 text-white hover:bg-blue-600'
-                          }`}
+                          className={`btn btn-sm ${isExecuting || isLoading ? 'btn-disabled' : 'btn-primary'}`}
                         >
                           {isExecuting ? (
                             <>
@@ -300,43 +326,7 @@ const MCPToolPanel: React.FC<MCPToolPanelProps> = ({
                         </button>
                       </div>
                     </div>
-
-                    {/* 도구 상세 정보 (확장 시) */}
-                    {isExpanded && (
-                      <div className="mt-4 space-y-3">
-                        {toolArgs.length > 0 ? (
-                          <div className="space-y-3">
-                            <h6 className="text-sm font-medium text-gray-700">인수:</h6>
-                            {toolArgs.map((arg) => (
-                              <div key={arg.name} className="space-y-1">
-                                <label className="block text-xs font-medium text-gray-600">
-                                  {arg.name}
-                                  {arg.required && <span className="text-red-500 ml-1">*</span>}
-                                  <span className="text-gray-400 ml-1">({arg.type})</span>
-                                </label>
-                                {arg.description && (
-                                  <p className="text-xs text-gray-500">{arg.description}</p>
-                                )}
-                                {renderArgumentInput(tool, arg)}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-500">이 도구는 인수가 필요하지 않습니다.</p>
-                        )}
-
-                        {/* 스키마 정보 */}
-                        <details className="text-xs">
-                          <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
-                            스키마 보기
-                          </summary>
-                          <pre className="mt-2 p-2 bg-gray-50 rounded text-xs overflow-x-auto">
-                            {JSON.stringify(tool.inputSchema, null, 2)}
-                          </pre>
-                        </details>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               );
             })}
@@ -344,8 +334,8 @@ const MCPToolPanel: React.FC<MCPToolPanelProps> = ({
         ))}
 
         {filteredTools.length === 0 && (
-          <div className="p-8 text-center text-gray-500">
-            <Settings className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+          <div className="p-8 text-center text-base-content/70">
+            <Settings className="w-12 h-12 mx-auto mb-4 text-base-content/30" />
             <p className="text-sm">
               {searchQuery ? '검색 결과가 없습니다.' : '사용 가능한 도구가 없습니다.'}
             </p>
