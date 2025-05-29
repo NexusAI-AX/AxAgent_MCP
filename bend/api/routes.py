@@ -116,19 +116,40 @@ async def control_server(
     if request.server_id not in manager.servers:
         raise HTTPException(404, f"서버를 찾을 수 없습니다: {request.server_id}")
     
+    async def start_server_task():
+        try:
+            success = await manager.start_server(request.server_id)
+            logger.info(f"백그라운드 서버 시작 {'성공' if success else '실패'}: {request.server_id}")
+        except Exception as e:
+            logger.error(f"백그라운드 서버 시작 오류 {request.server_id}: {e}")
+    
+    async def stop_server_task():
+        try:
+            success = await manager.stop_server(request.server_id)
+            logger.info(f"백그라운드 서버 중지 {'성공' if success else '실패'}: {request.server_id}")
+        except Exception as e:
+            logger.error(f"백그라운드 서버 중지 오류 {request.server_id}: {e}")
+    
+    async def restart_server_task():
+        try:
+            await manager.stop_server(request.server_id)
+            await asyncio.sleep(1)  # 잠시 대기
+            success = await manager.start_server(request.server_id)
+            logger.info(f"백그라운드 서버 재시작 {'성공' if success else '실패'}: {request.server_id}")
+        except Exception as e:
+            logger.error(f"백그라운드 서버 재시작 오류 {request.server_id}: {e}")
+    
     if request.action == "start":
-        success = await manager.start_server(request.server_id)
-        return {"message": "서버 시작 완료" if success else "서버 시작 실패"}
+        background_tasks.add_task(start_server_task)
+        return {"message": "서버 시작 요청이 처리되고 있습니다"}
     
     elif request.action == "stop":
-        success = await manager.stop_server(request.server_id)
-        return {"message": "서버 중지 완료" if success else "서버 중지 실패"}
+        background_tasks.add_task(stop_server_task)
+        return {"message": "서버 중지 요청이 처리되고 있습니다"}
     
     elif request.action == "restart":
-        await manager.stop_server(request.server_id)
-        await asyncio.sleep(1)  # 잠시 대기
-        success = await manager.start_server(request.server_id)
-        return {"message": "서버 재시작 완료" if success else "서버 재시작 실패"}
+        background_tasks.add_task(restart_server_task)
+        return {"message": "서버 재시작 요청이 처리되고 있습니다"}
     
     else:
         raise HTTPException(400, f"알 수 없는 액션: {request.action}")
@@ -147,10 +168,18 @@ async def get_server_tools(
     manager: MCPClientManager = Depends(get_mcp_manager)
 ):
     """특정 서버의 도구 목록 조회"""
+    logger.info(f"도구 목록 요청: {server_id}")
+    logger.info(f"등록된 서버들: {list(manager.servers.keys())}")
+    logger.info(f"도구 데이터 키들: {list(manager.tools.keys())}")
+    logger.info(f"서버 {server_id}의 도구 개수: {len(manager.tools.get(server_id, []))}")
+    
     if server_id not in manager.servers:
         raise HTTPException(404, f"서버를 찾을 수 없습니다: {server_id}")
     
-    return [asdict(tool) for tool in manager.tools[server_id]]
+    tools = manager.tools.get(server_id, [])
+    logger.info(f"반환할 도구 목록: {[tool.name for tool in tools]}")
+    
+    return [asdict(tool) for tool in tools]
 
 @router.post("/tools/call")
 async def call_tool(

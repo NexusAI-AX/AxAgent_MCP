@@ -109,6 +109,15 @@ class MCPClientManager:
             self.server_status[server_id].status = "starting"
             self._send_event("server_starting", {"server_id": server_id})
             
+            # 기존 데이터 완전 초기화
+            self.tools[server_id].clear()
+            self.resources[server_id].clear()
+            self.prompts[server_id].clear()
+            self.server_status[server_id].tools_count = 0
+            self.server_status[server_id].resources_count = 0
+            self.server_status[server_id].prompts_count = 0
+            logger.info(f"서버 데이터 초기화 완료: {server_id}")
+            
             # 환경 변수 설정
             env = os.environ.copy()
             if config.env:
@@ -335,6 +344,8 @@ class MCPClientManager:
             self.request_counters[server_id] += 1
             message["id"] = self.request_counters[server_id]
             
+        logger.info(f"메시지 전송 시작 {server_id}: {message.get('method', 'unknown')} (ID: {message['id']})")
+        
         # 응답 대기용 Future 생성
         future = asyncio.Future()
         self.pending_requests[server_id][message["id"]] = future
@@ -342,6 +353,8 @@ class MCPClientManager:
         try:
             # 메시지 전송
             message_str = json.dumps(message) + "\n"
+            logger.debug(f"전송할 메시지: {message_str.strip()}")
+            
             await asyncio.get_event_loop().run_in_executor(
                 None, process.stdin.write, message_str
             )
@@ -349,24 +362,31 @@ class MCPClientManager:
                 None, process.stdin.flush
             )
             
-            # 응답 대기 (타임아웃 60초로 증가)
-            response = await asyncio.wait_for(future, timeout=60.0)
+            logger.info(f"메시지 전송 완료, 응답 대기 중... {server_id}")
+            
+            # 응답 대기 (타임아웃 10초로 단축하여 빠른 피드백)
+            response = await asyncio.wait_for(future, timeout=10.0)
+            logger.info(f"응답 수신 완료 {server_id}: {response.get('result', {}).get('tools', [])[:3] if 'result' in response else 'no result'}")
             return response
             
         except asyncio.TimeoutError:
             # 타임아웃 시 Future 정리
             if message["id"] in self.pending_requests[server_id]:
                 del self.pending_requests[server_id][message["id"]]
+            logger.error(f"요청 타임아웃 {server_id}: {message.get('method', 'unknown')} (10초)")
             raise RuntimeError(f"요청 타임아웃: {server_id}")
         except Exception as e:
             # 오류 시 Future 정리
             if message["id"] in self.pending_requests[server_id]:
                 del self.pending_requests[server_id][message["id"]]
+            logger.error(f"메시지 전송 오류 {server_id}: {e}")
             raise
     
     async def _initialize_server(self, server_id: str):
         """서버 초기화"""
         try:
+            logger.info(f"서버 초기화 시작: {server_id}")
+            
             # initialize 메시지 전송
             init_message = {
                 "jsonrpc": "2.0",
@@ -384,10 +404,13 @@ class MCPClientManager:
                 }
             }
             
+            logger.info(f"initialize 메시지 전송 중: {server_id}")
             response = await self._send_message(server_id, init_message)
             
             if "error" in response:
                 raise RuntimeError(f"초기화 실패: {response['error']}")
+            
+            logger.info(f"initialize 응답 수신: {server_id}")
             
             # initialized 알림 전송
             await self._send_message(server_id, {
@@ -406,6 +429,13 @@ class MCPClientManager:
             self.server_status[server_id].status = "error"
             self.server_status[server_id].last_error = str(e)
             self._send_event("server_init_error", {"server_id": server_id, "error": str(e)})
+            # 초기화 실패 시 프로세스 정리
+            if server_id in self.processes:
+                try:
+                    self.processes[server_id].terminate()
+                    del self.processes[server_id]
+                except:
+                    pass
     
     async def _load_server_capabilities(self, server_id: str):
         """서버 기능 로드 (도구, 리소스, 프롬프트)"""

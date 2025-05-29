@@ -29,15 +29,18 @@ export interface MCPResource {
   content?: any; // 리소스 내용을 저장하기 위한 속성 추가
 }
 
+export interface MCPPromptArgument {
+  name: string;
+  description?: string;
+  required?: boolean;
+}
+
 export interface MCPPrompt {
   name: string;
   description: string;
-  arguments: Array<{
-    name: string;
-    description?: string;
-    required?: boolean;
-  }>;
+  arguments: MCPPromptArgument[];
   server_id: string;
+  details?: any; // 프롬프트 상세 정보를 저장하기 위한 속성 추가
 }
 
 export interface MCPServerStatus {
@@ -512,17 +515,42 @@ export class MCPManager {
     }
   }
 
-  // 프롬프트 실행 메서드
+  // 프롬프트 실행 메서드 - 2단계 호출 구조 (캐시 사용 방식)
   async executePrompt(serverId: string, promptName: string, args: Record<string, any> = {}): Promise<any> {
     try {
-      // 모든 인자 값을 문자열로 변환
+      // 1. 인자 준비
+      // - 모든 인자 값을 문자열로 변환 (백엔드 API 호환성)
       const stringArgs: Record<string, string> = {};
       Object.keys(args).forEach(key => {
         stringArgs[key] = String(args[key]);
       });
       
+      // 2. 저장된 프롬프트 정보 확인 (1단계 호출 결과 확인)
+      // - 해당 서버의 프롬프트 목록 가져오기
+      const serverPrompts = this.prompts.get(serverId) || [];
+      // - 해당 이름의 프롬프트 찾기
+      const existingPrompt = serverPrompts.find(p => p.name === promptName);
+      
+      // 3. 캐시 사용 여부 확인 (조건: 이미 상세 정보 있고 + 인자 없음)
+      if (existingPrompt && existingPrompt.details && Object.keys(args).length === 0) {
+        // 3-1. 캐시 사용 - API 호출 없이 저장된 정보 바로 반환
+        console.log(`캐시된 프롬프트 정보 사용 (${promptName})`);
+        return existingPrompt.details;  // API 호출 없이 바로 반환
+      }
+      
+      // 4. API 호출 (2단계 호출) - 상세 정보가 없거나 인자가 있는 경우
       console.log(`프롬프트 실행 중 (${promptName}), 인자:`, stringArgs);
+      // - /prompts/get API 호출
       const result = await this.client.getPrompt(serverId, promptName, stringArgs);
+      
+      // 5. 결과 처리
+      // - 프롬프트 정보 업데이트 (상세 정보 추가)
+      if (existingPrompt) {
+        // - 같은 프롬프트 요청이 다시 있을 때를 위해 캐시
+        existingPrompt.details = result.result;
+      }
+      
+      // 6. 결과 반환
       return result.result;
     } catch (error) {
       console.error(`프롬프트 실행 오류 (${promptName}):`, error);

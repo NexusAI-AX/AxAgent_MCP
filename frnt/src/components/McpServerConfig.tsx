@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import MCPToolPanel from './MCPToolPanel';
-// MCPPromptPanel 컴포넌트 임포트
 import MCPPromptPanel from './MCPPromptPanel';
 import MCPResourcePanel from './MCPResourcePanel';
 import { MCPTool, MCPResource, MCPPrompt } from '../utils/mcp-client';
@@ -12,10 +11,21 @@ import { PlayIcon, StopIcon } from '@heroicons/react/24/outline';
 
 const BASE_URL = 'http://localhost:8000';
 
+// API 엔드포인트 상수화
+const API_ENDPOINTS = {
+  CONFIG: `${BASE_URL}/config`,
+  STATUS: `${BASE_URL}/status`,
+  SERVER_CONTROL: `${BASE_URL}/servers/control`,
+  TOOLS_CALL: `${BASE_URL}/tools/call`,
+  getTools: (serverId: string) => `${BASE_URL}/tools/${encodeURIComponent(serverId)}`,
+  getResources: (serverId: string) => `${BASE_URL}/resources/${encodeURIComponent(serverId)}`,
+  getPrompts: (serverId: string) => `${BASE_URL}/prompts/${encodeURIComponent(serverId)}`,
+} as const;
+
 interface McpServer {
   name: string;
   description: string;
-  command: string | string[] | any; // command가 문자열 또는 배열 형태로 올 수 있음
+  command: string | string[] | Record<string, any>;
   args: string[];
   env: Record<string, string>;
   auto_start: boolean;
@@ -36,28 +46,43 @@ interface ServerStatus {
   prompts_count: number;
 }
 
+type TabType = 'tools' | 'resources' | 'prompts';
+type LoadingStates = Record<string, boolean>;
+
 export default function McpServerConfig() {
   const { canvasData, setCanvasData } = useAppContext();
-  const mcpManager = new MCPManager();
+  
+  // MCPManager 인스턴스 최적화
+  const mcpManager = useMemo(() => new MCPManager(), []);
+  
+  // 상태 관리
   const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
   const [serverTools, setServerTools] = useState<MCPTool[]>([]);
   const [serverResources, setServerResources] = useState<MCPResource[]>([]);
   const [serverPrompts, setServerPrompts] = useState<MCPPrompt[]>([]);
-  const [activeTab, setActiveTab] = useState<'tools' | 'resources' | 'prompts'>('tools'); // 'tools', 'resources', 'prompts'
+  const [activeTab, setActiveTab] = useState<TabType>('tools');
   const [config, setConfig] = useState<McpConfig | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [runningServers, setRunningServers] = useState<Record<string, boolean>>({});
   const [serverStatuses, setServerStatuses] = useState<Record<string, ServerStatus>>({});
+  const [serverLoadingStates, setServerLoadingStates] = useState<LoadingStates>({});
 
-  const fetchConfig = async () => {
+  // 에러 처리 헬퍼 함수
+  const handleError = useCallback((err: unknown, context: string) => {
+    const errorMessage = err instanceof Error ? err.message : `${context} 중 알 수 없는 오류가 발생했습니다.`;
+    setError(errorMessage);
+    console.error(`${context} 실패:`, err);
+  }, []);
+
+  // 설정 가져오기
+  const fetchConfig = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`${BASE_URL}/config`, {
-        headers: {
-          'accept': 'application/json'
-        }
+      
+      const response = await fetch(API_ENDPOINTS.CONFIG, {
+        headers: { 'accept': 'application/json' }
       });
       
       if (!response.ok) {
@@ -67,159 +92,19 @@ export default function McpServerConfig() {
       const data = await response.json();
       setConfig(data);
       
-      // 설정을 가져온 후 서버 상태도 가져옵니다
       await fetchServerStatuses();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.');
+      handleError(err, '설정 가져오기');
     } finally {
       setLoading(false);
     }
-  };
-  
-  // 모든 서버의 상태를 가져오는 함수
-  // 서버 선택 핸들러
-  const handleServerSelect = async (serverId: string) => {
-    // 이미 선택된 서버를 다시 클릭하면 선택 해제
-    if (selectedServerId === serverId) {
-      setSelectedServerId(null);
-      setServerTools([]);
-      setServerResources([]);
-      setServerPrompts([]);
-      return;
-    }
-    
-    console.log(`서버 선택: ${serverId}, 서버 상태:`, serverStatuses);
-    setSelectedServerId(serverId);
-    
-    // 서버 상태 확인 - 실행 중인지 확인
-    // 서버 ID로 직접 접근
-    const serverStatus = serverStatuses[serverId];
-    const isRunning = serverStatus && serverStatus.status === 'running';
-    
-    console.log(`서버 ${serverId} 상태:`, serverStatus);
-    console.log(`서버 ${serverId} 실행 상태:`, isRunning);
-    
-    if (!isRunning) {
-      console.log(`서버 ${serverId}가 실행 중이 아니므로 데이터를 가져오지 않습니다.`);
-      setServerTools([]);
-      setServerResources([]);
-      setServerPrompts([]);
-      return;
-    }
-    
-    // 서버 데이터 가져오기 (도구, 리소스, 프롬프트)
-    try {
-      console.log(`서버 ${serverId}의 데이터를 가져오기 시작...`);
-      
-      // 로딩 상태 설정
-      setLoading(true);
-      
-      // 병렬로 모든 데이터 가져오기
-      const toolsUrl = `${BASE_URL}/tools/${encodeURIComponent(serverId)}`;
-      const resourcesUrl = `${BASE_URL}/resources/${encodeURIComponent(serverId)}`;
-      const promptsUrl = `${BASE_URL}/prompts/${encodeURIComponent(serverId)}`;
-      
-      console.log('요청 URL:', { toolsUrl, resourcesUrl, promptsUrl });
-      
-      const [toolsResponse, resourcesResponse, promptsResponse] = await Promise.all([
-        fetch(toolsUrl, {
-          headers: { 'accept': 'application/json' }
-        }),
-        fetch(resourcesUrl, {
-          headers: { 'accept': 'application/json' }
-        }),
-        fetch(promptsUrl, {
-          headers: { 'accept': 'application/json' }
-        })
-      ]);
-      
-      console.log('응답 상태:', { 
-        tools: toolsResponse.status, 
-        resources: resourcesResponse.status, 
-        prompts: promptsResponse.status 
-      });
-      
-      // 도구 처리
-      if (toolsResponse.ok) {
-        const tools = await toolsResponse.json();
-        console.log(`도구 가져오기 성공: ${tools.length}개 도구`);
-        setServerTools(tools);
-      } else {
-        const errorText = await toolsResponse.text();
-        console.error(`도구 가져오기 실패: ${toolsResponse.status}`, errorText);
-        setServerTools([]);
-      }
-      
-      // 리소스 처리
-      if (resourcesResponse.ok) {
-        const resources = await resourcesResponse.json();
-        console.log(`리소스 가져오기 성공: ${resources.length}개 리소스`);
-        
-        // 리소스 상세 정보 미리 가져오기
-        const resourcesWithContent = await Promise.all(
-          resources.map(async (resource: MCPResource) => {
-            try {
-              // 각 리소스의 상세 내용 가져오기
-              const content = await mcpManager.readResource(serverId, resource.uri);
-              console.log(`리소스 상세 정보 가져오기 성공: ${resource.uri}`);
-              return { ...resource, content };
-            } catch (error) {
-              console.error(`리소스 상세 정보 가져오기 실패: ${resource.uri}`, error);
-              return resource; // 실패 시 원본 리소스 반환
-            }
-          })
-        );
-        
-        setServerResources(resourcesWithContent);
-      } else {
-        const errorText = await resourcesResponse.text();
-        console.error(`리소스 가져오기 실패: ${resourcesResponse.status}`, errorText);
-        setServerResources([]);
-      }
-      
-      // 프롬프트 처리
-      if (promptsResponse.ok) {
-        const prompts = await promptsResponse.json();
-        console.log(`프롬프트 가져오기 성공: ${prompts.length}개 프롬프트`);
-        
-        // 프롬프트 상세 정보 미리 가져오기
-        // 프롬프트의 경우 미리 가져올 필요가 없으나, 추후 필요할 수 있으므로 기본 정보만 저장
-        const promptsWithDetails = prompts.map((prompt: MCPPrompt) => {
-          return { 
-            ...prompt, 
-            // 프롬프트 상세 정보는 실제 사용시 가져올 수 있도록 기본 정보 저장
-            details: { 
-              name: prompt.name, 
-              description: prompt.description,
-              server_id: serverId 
-            } 
-          };
-        });
-        
-        setServerPrompts(promptsWithDetails);
-      } else {
-        const errorText = await promptsResponse.text();
-        console.error(`프롬프트 가져오기 실패: ${promptsResponse.status}`, errorText);
-        setServerPrompts([]);
-      }
-      
-    } catch (err) {
-      console.error('서버 데이터 가져오기 오류:', err);
-      setError(err instanceof Error ? err.message : '서버 데이터를 가져오는 중 오류가 발생했습니다.');
-      setServerTools([]);
-      setServerResources([]);
-      setServerPrompts([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, []);
 
-  const fetchServerStatuses = async () => {
+  // 서버 상태 가져오기
+  const fetchServerStatuses = useCallback(async () => {
     try {
-      const response = await fetch(`${BASE_URL}/status`, {
-        headers: {
-          'accept': 'application/json'
-        }
+      const response = await fetch(API_ENDPOINTS.STATUS, {
+        headers: { 'accept': 'application/json' }
       });
       
       if (!response.ok) {
@@ -229,12 +114,11 @@ export default function McpServerConfig() {
       const statusData = await response.json();
       console.log('서버 상태 데이터:', statusData);
       
-      // 상태 데이터를 서버 ID를 키로 하는 객체로 변환
       const statusMap: Record<string, ServerStatus> = {};
+      const runningMap: Record<string, boolean> = {};
+      const newLoadingStates: Record<string, boolean> = {};
       
-      // statusData가 servers 키를 가진 객체인지 확인
       if (statusData && typeof statusData === 'object' && 'servers' in statusData) {
-        // servers 객체에서 각 서버 상태 가져오기
         const servers = statusData.servers as Record<string, any>;
         
         Object.entries(servers).forEach(([serverId, serverData]) => {
@@ -244,26 +128,25 @@ export default function McpServerConfig() {
               server_id: serverId
             } as ServerStatus;
             
-            // 실행 중인 서버 상태도 업데이트
-            setRunningServers(prev => ({
-              ...prev,
-              [serverId]: serverData.status === 'running'
-            }));
+            runningMap[serverId] = serverData.status === 'running';
+            
+            // 서버가 실행 중이면 로딩 상태 해제
+            if (serverData.status === 'running' || serverData.status === 'error') {
+              newLoadingStates[serverId] = false;
+            }
           }
         });
       } else if (Array.isArray(statusData)) {
-        // 배열 형태일 경우
         statusData.forEach((status: ServerStatus) => {
           statusMap[status.server_id] = status;
+          runningMap[status.server_id] = status.status === 'running';
           
-          // 실행 중인 서버 상태도 업데이트
-          setRunningServers(prev => ({
-            ...prev,
-            [status.server_id]: status.status === 'running'
-          }));
+          // 서버가 실행 중이면 로딩 상태 해제
+          if (status.status === 'running' || status.status === 'error') {
+            newLoadingStates[status.server_id] = false;
+          }
         });
       } else if (typeof statusData === 'object' && statusData !== null) {
-        // 객체 형태일 경우 - 키가 서버 ID인 객체
         Object.entries(statusData).forEach(([serverId, status]) => {
           if (typeof status === 'object' && status !== null) {
             const serverStatus = status as unknown as ServerStatus;
@@ -272,28 +155,200 @@ export default function McpServerConfig() {
               server_id: serverId
             };
             
-            // 실행 중인 서버 상태도 업데이트
-            setRunningServers(prev => ({
-              ...prev,
-              [serverId]: serverStatus.status === 'running'
-            }));
+            runningMap[serverId] = serverStatus.status === 'running';
+            
+            // 서버가 실행 중이면 로딩 상태 해제
+            if (serverStatus.status === 'running' || serverStatus.status === 'error') {
+              newLoadingStates[serverId] = false;
+            }
           }
         });
       }
       
       console.log('처리된 서버 상태:', statusMap);
       setServerStatuses(statusMap);
+      setRunningServers(runningMap);
+      
+      // 로딩 상태 업데이트
+      setServerLoadingStates(prev => ({
+        ...prev,
+        ...newLoadingStates
+      }));
     } catch (err) {
       console.error('서버 상태 가져오기 오류:', err);
     }
-  };
+  }, []);
 
-  const startServer = async (serverName: string) => {
+  // 서버 선택 핸들러
+  const handleServerSelect = useCallback(async (serverId: string) => {
+    if (selectedServerId === serverId) {
+      setSelectedServerId(null);
+      setServerTools([]);
+      setServerResources([]);
+      setServerPrompts([]);
+      return;
+    }
+    
+    console.log(`서버 선택: ${serverId}`);
+    setSelectedServerId(serverId);
+    
+    const serverStatus = serverStatuses[serverId];
+    const isRunning = serverStatus && serverStatus.status === 'running';
+    
+    if (!isRunning) {
+      console.log(`서버 ${serverId}가 실행 중이 아니므로 데이터를 가져오지 않습니다.`);
+      setServerTools([]);
+      setServerResources([]);
+      setServerPrompts([]);
+      return;
+    }
+    
+    // 서버별 로딩 상태 설정
+    setServerLoadingStates(prev => ({ ...prev, [serverId]: true }));
+    
+    try {
+      console.log(`서버 ${serverId}의 데이터를 가져오기 시작...`);
+      
+      const [toolsResponse, resourcesResponse, promptsResponse] = await Promise.all([
+        fetch(API_ENDPOINTS.getTools(serverId), {
+          headers: { 'accept': 'application/json' }
+        }),
+        fetch(API_ENDPOINTS.getResources(serverId), {
+          headers: { 'accept': 'application/json' }
+        }),
+        fetch(API_ENDPOINTS.getPrompts(serverId), {
+          headers: { 'accept': 'application/json' }
+        })
+      ]);
+      
+      // 도구 처리
+      if (toolsResponse.ok) {
+        const toolsData = await toolsResponse.json();
+        console.log('도구 응답 데이터:', toolsData);
+        
+        // 응답 구조 확인 및 처리
+        let tools = [];
+        if (Array.isArray(toolsData)) {
+          tools = toolsData;
+        } else if (toolsData.tools && Array.isArray(toolsData.tools)) {
+          tools = toolsData.tools;
+        } else if (typeof toolsData === 'object') {
+          // 객체 형태인 경우 배열로 변환
+          console.log('도구 데이터가 객체 형태입니다. 구조 확인:', toolsData);
+          tools = Object.values(toolsData).filter(item => typeof item === 'object');
+        }
+        
+        console.log(`도구 가져오기 성공: ${tools.length}개 도구`);
+        
+        // 서버 ID 추가
+        const toolsWithServerId = tools.map((tool: any) => ({
+          ...tool,
+          server_id: serverId
+        }));
+        
+        setServerTools(toolsWithServerId);
+      } else {
+        console.error(`도구 가져오기 실패: ${toolsResponse.status}`);
+        setServerTools([]);
+      }
+      
+      // 리소스 처리
+      if (resourcesResponse.ok) {
+        const resourcesData = await resourcesResponse.json();
+        console.log('리소스 응답 데이터:', resourcesData);
+        
+        // 응답 구조 확인 및 처리
+        let resources = [];
+        if (Array.isArray(resourcesData)) {
+          resources = resourcesData;
+        } else if (resourcesData.resources && Array.isArray(resourcesData.resources)) {
+          resources = resourcesData.resources;
+        } else if (typeof resourcesData === 'object') {
+          // 객체 형태인 경우 배열로 변환
+          console.log('리소스 데이터가 객체 형태입니다. 구조 확인:', resourcesData);
+          resources = Object.values(resourcesData).filter(item => typeof item === 'object');
+        }
+        
+        console.log(`리소스 가져오기 성공: ${resources.length}개 리소스`);
+        
+        // 서버 ID 추가 및 내용 가져오기
+        const resourcesWithServerId = resources.map((resource: any) => ({
+          ...resource,
+          server_id: serverId
+        }));
+        
+        const resourcesWithContent = await Promise.all(
+          resourcesWithServerId.map(async (resource: MCPResource) => {
+            try {
+              if (resource.uri) {
+                const content = await mcpManager.readResource(serverId, resource.uri);
+                return { ...resource, content };
+              }
+              return resource;
+            } catch (error) {
+              console.error(`리소스 상세 정보 가져오기 실패: ${resource.uri}`, error);
+              return resource;
+            }
+          })
+        );
+        
+        setServerResources(resourcesWithContent);
+      } else {
+        console.error(`리소스 가져오기 실패: ${resourcesResponse.status}`);
+        setServerResources([]);
+      }
+      
+      // 프롬프트 처리
+      if (promptsResponse.ok) {
+        const promptsData = await promptsResponse.json();
+        console.log('프롬프트 응답 데이터:', promptsData);
+        
+        // 응답 구조 확인 및 처리
+        let prompts = [];
+        if (Array.isArray(promptsData)) {
+          prompts = promptsData;
+        } else if (promptsData.prompts && Array.isArray(promptsData.prompts)) {
+          prompts = promptsData.prompts;
+        } else if (typeof promptsData === 'object') {
+          // 객체 형태인 경우 배열로 변환
+          console.log('프롬프트 데이터가 객체 형태입니다. 구조 확인:', promptsData);
+          prompts = Object.values(promptsData).filter(item => typeof item === 'object');
+        }
+        
+        console.log(`프롬프트 가져오기 성공: ${prompts.length}개 프롬프트`);
+        
+        // 서버 ID 추가
+        const promptsWithServerId = prompts.map((prompt: any) => ({
+          ...prompt,
+          server_id: serverId,
+          details: null,
+          arguments: prompt.arguments || []
+        }));
+        
+        setServerPrompts(promptsWithServerId);
+      } else {
+        console.error(`프롬프트 가져오기 실패: ${promptsResponse.status}`);
+        setServerPrompts([]);
+      }
+      
+    } catch (err) {
+      handleError(err, '서버 데이터 가져오기');
+      setServerTools([]);
+      setServerResources([]);
+      setServerPrompts([]);
+    } finally {
+      setServerLoadingStates(prev => ({ ...prev, [serverId]: false }));
+    }
+  }, [selectedServerId, serverStatuses, mcpManager, handleError]);
+
+  // 서버 시작
+  const startServer = useCallback(async (serverName: string) => {
+    setServerLoadingStates(prev => ({ ...prev, [serverName]: true }));
+    
     try {
       setRunningServers(prev => ({ ...prev, [serverName]: true }));
       
-      // 실제 API 호출 구현
-      const response = await fetch(`${BASE_URL}/servers/control`, {
+      const response = await fetch(API_ENDPOINTS.SERVER_CONTROL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -311,21 +366,72 @@ export default function McpServerConfig() {
       }
       
       const data = await response.json();
-      if (!data.success) {
+      console.log('서버 시작 응답:', data);
+      
+      // 응답에 message 필드가 있으면 성공으로 간주
+      // 백엔드에서는 success 필드가 아닌 message 필드를 반환함
+      if (!data.message && !data.success) {
         throw new Error('서버 시작에 실패했습니다.');
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '서버 시작 중 오류가 발생했습니다.');
-      setRunningServers(prev => ({ ...prev, [serverName]: false }));
-    }
-  };
-
-  const stopServer = async (serverName: string) => {
-    try {
-      setRunningServers(prev => ({ ...prev, [serverName]: false }));
       
-      // 실제 API 호출 구현
-      const response = await fetch(`${BASE_URL}/servers/control`, {
+      // 서버 상태를 즉시 확인
+      await fetchServerStatuses();
+      
+      // 서버 상태 확인
+      let currentStatus = serverStatuses[serverName];
+      if (currentStatus && currentStatus.status === 'running') {
+        // 서버가 이미 실행 중이면 로딩 상태 즉시 해제
+        setServerLoadingStates(prev => ({ ...prev, [serverName]: false }));
+        return;
+      }
+      
+      // 서버 시작 후 상태를 여러번 확인하여 로딩 상태 업데이트
+      // 서버가 완전히 시작될 때까지 여러번 확인 (500ms 간격으로 더 자주 확인)
+      const checkInterval = setInterval(async () => {
+        await fetchServerStatuses();
+        
+        // 서버 상태 확인
+        currentStatus = serverStatuses[serverName];
+        console.log(`서버 ${serverName} 상태 확인:`, currentStatus);
+        
+        if (currentStatus && currentStatus.status === 'running') {
+          // 서버가 실행 중이면 로딩 상태 해제 및 인터벌 중지
+          console.log(`서버 ${serverName} 실행 중 확인됨, 로딩 상태 해제`);
+          setServerLoadingStates(prev => ({ ...prev, [serverName]: false }));
+          clearInterval(checkInterval);
+        }
+      }, 500); // 0.5초마다 확인
+      
+      // 5초 후에는 무조건 인터벌 중지 (안전장치)
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        console.log(`서버 ${serverName} 로딩 타임아웃, 로딩 상태 해제`);
+        setServerLoadingStates(prev => ({ ...prev, [serverName]: false }));
+      }, 5000);
+      
+    } catch (err) {
+      handleError(err, '서버 시작');
+      setRunningServers(prev => ({ ...prev, [serverName]: false }));
+      setServerLoadingStates(prev => ({ ...prev, [serverName]: false }));
+    }
+  }, [handleError, fetchServerStatuses, serverStatuses]);
+
+  // 서버 중지
+  const stopServer = useCallback(async (serverName: string) => {
+    setServerLoadingStates(prev => ({ ...prev, [serverName]: true }));
+    
+    try {
+      // 서버 상태 확인
+      const currentStatus = serverStatuses[serverName];
+      if (!currentStatus || currentStatus.status !== 'running') {
+        console.log(`서버 ${serverName}은 이미 중지되었거나 실행 중이 아닙니다.`);
+        setRunningServers(prev => ({ ...prev, [serverName]: false }));
+        return;
+      }
+      
+      // 서버 중지 API 호출
+      console.log(`서버 ${serverName} 중지 요청 전송...`);
+      const response = await fetch(API_ENDPOINTS.SERVER_CONTROL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -337,90 +443,61 @@ export default function McpServerConfig() {
         })
       });
       
+      // 응답 처리
+      let responseData;
+      try {
+        // 응답이 JSON인지 확인
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          responseData = await response.json();
+        } else {
+          // JSON이 아닌 경우 텍스트로 처리
+          const textData = await response.text();
+          responseData = { message: textData };
+        }
+      } catch (parseError) {
+        console.warn('응답 파싱 오류:', parseError);
+        responseData = { message: '응답 파싱 오류' };
+      }
+      
+      // 오류 처리
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `서버 중지 실패: ${response.status}`);
+        console.error(`서버 중지 API 오류:`, responseData);
+        // 서버가 이미 중지되었을 수 있으므로 무시하고 계속 진행
       }
       
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error('서버 중지에 실패했습니다.');
-        setRunningServers(prev => ({ ...prev, [serverName]: true }));
-      }
+      // 서버 상태 업데이트
+      console.log(`서버 ${serverName} 중지 요청 처리 완료`);
+      setRunningServers(prev => ({ ...prev, [serverName]: false }));
+      
+      // 서버 상태 다시 가져오기
+      await fetchServerStatuses();
+      
+      // 서버 상태 확인 폴링
+      const checkInterval = setInterval(async () => {
+        await fetchServerStatuses();
+        const updatedStatus = serverStatuses[serverName];
+        if (!updatedStatus || updatedStatus.status !== 'running') {
+          clearInterval(checkInterval);
+        }
+      }, 1000);
+      
+      // 5초 후 폴링 중지
+      setTimeout(() => clearInterval(checkInterval), 5000);
+      
     } catch (err) {
-      setError(err instanceof Error ? err.message : '서버 중지 중 오류가 발생했습니다.');
-      setRunningServers(prev => ({ ...prev, [serverName]: true }));
+      console.error(`서버 중지 오류:`, err);
+      // 오류가 발생해도 서버가 중지되었을 수 있으므로 상태 업데이트
+      setRunningServers(prev => ({ ...prev, [serverName]: false }));
+    } finally {
+      setServerLoadingStates(prev => ({ ...prev, [serverName]: false }));
     }
-  };
+  }, [handleError, fetchServerStatuses, serverStatuses]);
 
-  // 컴포넌트 마운트 시 설정 불러오기
-  useEffect(() => {
-    fetchConfig();
-    
-    // 컴포넌트가 표시될 때 적절한 타입으로 설정 (기존 PY_INTERPRETER 타입 유지)
-    if (!canvasData || canvasData.type !== CanvasType.PY_INTERPRETER) {
-      setCanvasData({
-        type: CanvasType.PY_INTERPRETER,
-        content: ''
-      });
-    }
-    
-    // 주기적으로 서버 상태 업데이트 (5초마다)
-    const statusInterval = setInterval(() => {
-      fetchServerStatuses();
-    }, 5000);
-    
-    // 컴포넌트 언마운트 시 클리어
-    return () => clearInterval(statusInterval);
-  }, []);
-
-  
   // 도구 실행 핸들러
-
-  // 리소스 조회 핸들러
-  const handleViewResource = async (serverId: string, uri: string) => {
+  const handleExecuteTool = useCallback(async (serverId: string, toolName: string, args: Record<string, any>) => {
     try {
-      // 이미 가져온 리소스 중에서 찾기
-      const existingResource = serverResources.find(r => r.uri === uri && r.server_id === serverId);
-      
-      // 이미 상세 정보가 있으면 그대로 반환
-      if (existingResource && existingResource.content) {
-        console.log(`캐시된 리소스 사용 (${uri}):`, existingResource.content);
-        return existingResource.content;
-      }
-      
-      // 없으면 새로 가져오기
-      const result = await mcpManager.readResource(serverId, uri);
-      console.log(`리소스 조회 결과 (${uri}):`, result);
-      
-      // 리소스 목록 업데이트 (상세 정보 추가)
-      setServerResources(prev => 
-        prev.map(r => r.uri === uri && r.server_id === serverId ? { ...r, content: result } : r)
-      );
-      
-      return result;
-    } catch (error) {
-      console.error(`리소스 조회 오류 (${uri}):`, error);
-      throw error;
-    }
-  };
-
-  // 프롬프트 실행 핸들러
-  const handleExecutePrompt = async (serverId: string, promptName: string, args: Record<string, any>) => {
-    try {
-      const result = await mcpManager.executePrompt(serverId, promptName, args);
-      console.log(`프롬프트 실행 결과 (${promptName}):`, result);
-      // 여기에 프롬프트 실행 결과를 표시하는 로직 추가 (예: 모달, 알림 등)
-      return result;
-    } catch (error) {
-      console.error(`프롬프트 실행 오류 (${promptName}):`, error);
-      throw error;
-    }
-  };
-
-  const handleExecuteTool = async (serverId: string, toolName: string, args: Record<string, any>) => {
-    try {
-      const response = await fetch(`${BASE_URL}/tools/call`, {
+      const response = await fetch(API_ENDPOINTS.TOOLS_CALL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -439,9 +516,75 @@ export default function McpServerConfig() {
       
       const result = await response.json();
       console.log('도구 실행 결과:', result);
-      // 여기서 결과를 처리하거나 표시할 수 있습니다
+      return result;
     } catch (err) {
-      console.error('도구 실행 오류:', err);
+      handleError(err, '도구 실행');
+      throw err;
+    }
+  }, [handleError]);
+
+  // 리소스 조회 핸들러
+  const handleViewResource = useCallback(async (serverId: string, uri: string) => {
+    try {
+      const existingResource = serverResources.find(r => r.uri === uri && r.server_id === serverId);
+      
+      if (existingResource && existingResource.content) {
+        console.log(`캐시된 리소스 사용 (${uri}):`, existingResource.content);
+        return existingResource.content;
+      }
+      
+      const result = await mcpManager.readResource(serverId, uri);
+      console.log(`리소스 조회 결과 (${uri}):`, result);
+      
+      setServerResources(prev => 
+        prev.map(r => r.uri === uri && r.server_id === serverId ? { ...r, content: result } : r)
+      );
+      
+      return result;
+    } catch (error) {
+      handleError(error, '리소스 조회');
+      throw error;
+    }
+  }, [serverResources, mcpManager, handleError]);
+
+  // 프롬프트 실행 핸들러
+  const handleExecutePrompt = useCallback(async (serverId: string, promptName: string, args: Record<string, any>) => {
+    try {
+      console.log(`프롬프트 실행 중 (${promptName}), 인자:`, args);
+      const result = await mcpManager.executePrompt(serverId, promptName, args);
+      console.log(`프롬프트 실행 결과 (${promptName}):`, result);
+      
+      setServerPrompts(prev => 
+        prev.map(p => p.name === promptName && p.server_id === serverId ? { ...p, details: result } : p)
+      );
+      
+      return result;
+    } catch (error) {
+      handleError(error, '프롬프트 실행');
+      throw error;
+    }
+  }, [mcpManager, handleError]);
+
+  // 컴포넌트 마운트 시 초기화
+  useEffect(() => {
+    fetchConfig();
+    
+    if (!canvasData || canvasData.type !== CanvasType.PY_INTERPRETER) {
+      setCanvasData({
+        type: CanvasType.PY_INTERPRETER,
+        content: ''
+      });
+    }
+  }, [fetchConfig, canvasData, setCanvasData]);
+
+  // 명령어 문자열 변환 헬퍼
+  const getCommandString = (command: string | string[] | Record<string, any>): string => {
+    if (typeof command === 'string') {
+      return command;
+    } else if (Array.isArray(command)) {
+      return command.join(' ');
+    } else {
+      return String(command);
     }
   };
 
@@ -479,20 +622,8 @@ export default function McpServerConfig() {
               </thead>
               <tbody>
                 {Object.entries(config.servers).map(([key, server]) => {
-                  // 해당 서버의 상태 가져오기
                   const serverStatus = serverStatuses[key];
-                  
-                  // 상태에 따른 배지 색상 설정
-                  let statusBadgeClass = "badge";
-                  if (!serverStatus) {
-                    statusBadgeClass += " badge-ghost";
-                  } else if (serverStatus.status === "running") {
-                    statusBadgeClass += " badge-success";
-                  } else if (serverStatus.status === "error") {
-                    statusBadgeClass += " badge-error";
-                  } else {
-                    statusBadgeClass += " badge-warning";
-                  }
+                  const isLoading = serverLoadingStates[key];
                   
                   return (
                     <tr key={key}>
@@ -509,6 +640,11 @@ export default function McpServerConfig() {
                           <div className={`w-3 h-3 rounded-full mr-2 ${!serverStatus ? 'bg-gray-400' : 
                             serverStatus.status === 'running' ? 'bg-green-500' : 
                             serverStatus.status === 'error' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
+                          <span className="text-sm">
+                            {!serverStatus ? '알 수 없음' : 
+                             serverStatus.status === 'running' ? '실행 중' : 
+                             serverStatus.status === 'error' ? '오류' : '중지됨'}
+                          </span>
                         </div>
                         {serverStatus?.pid && (
                           <div className="text-xs text-gray-500 mt-1 ml-5">
@@ -518,11 +654,7 @@ export default function McpServerConfig() {
                       </td>
                       <td>
                         <div className="text-xs font-mono">
-                          {typeof server.command === 'string' 
-                            ? server.command 
-                            : Array.isArray(server.command) 
-                              ? server.command.join(' ') 
-                              : String(server.command)}
+                          {getCommandString(server.command)}
                           {server.args && Array.isArray(server.args) && server.args.length > 0 
                             ? ' ' + server.args.join(' ') 
                             : ''}
@@ -530,7 +662,9 @@ export default function McpServerConfig() {
                       </td>
                       <td>{server.auto_start ? '예' : '아니오'}</td>
                       <td>
-                        {runningServers[key] ? (
+                        {isLoading ? (
+                          <div className="loading loading-spinner loading-sm"></div>
+                        ) : runningServers[key] ? (
                           <button
                             className="btn btn-error btn-sm"
                             onClick={() => stopServer(key)}
@@ -570,8 +704,16 @@ export default function McpServerConfig() {
               </div>
             )}
             
-            {/* 직접 구현한 탭 컴포넌트 */}
-            {runningServers[selectedServerId] && (
+            {/* 서버별 로딩 상태 표시 */}
+            {serverLoadingStates[selectedServerId] && (
+              <div className="alert alert-info mb-4">
+                <div className="loading loading-spinner loading-sm mr-2"></div>
+                <span>서버 데이터를 불러오는 중...</span>
+              </div>
+            )}
+            
+            {/* 탭 컴포넌트 */}
+            {runningServers[selectedServerId] && !serverLoadingStates[selectedServerId] && (
               <div className="w-full">
                 {/* 탭 버튼 */}
                 <div className="tabs tabs-bordered mb-4">
